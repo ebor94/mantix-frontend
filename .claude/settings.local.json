@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(Get-ChildItem -Path \"C:\\\\apps\\\\mantix\\\\mantix-backend\\\\src\" -Recurse -Filter \"*.js\")",
+      "Bash(Select-Object FullName)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss init:*)",
+      "Bash(npm run build:*)",
+      "Bash(node -e:*)",
+      "Bash(curl:*)",
+      "Bash(python3 -m json.tool:*)"
+    ]
+  }
+}
