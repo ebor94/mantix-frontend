@@ -278,6 +278,34 @@ export const useMantenimientosStore = defineStore('mantenimientos', {
       }
     },
 
+    // Registrar ejecución múltiple - aplica los mismos datos de cierre a varios mantenimientos
+    async ejecutarMantenimientosMultiple(ids, payload) {
+      this.loading = true
+      try {
+        const response = await api.post('/mantenimientos/ejecucion-multiple', {
+          mantenimiento_ids: ids,
+          ...payload
+        })
+
+        if (!response.success) {
+          throw new Error(response.message || 'Error al registrar las ejecuciones')
+        }
+
+        toast.success(`${ids.length} mantenimientos ejecutados correctamente`)
+
+        await this.fetchMantenimientos()
+        await this.fetchMantenimientosHoy()
+
+        return response.data
+      } catch (error) {
+        console.error('Error al ejecutar mantenimientos múltiples:', error)
+        toast.error(error.response?.data?.message || 'Error al ejecutar los mantenimientos')
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
     // Reprogramar mantenimiento
     async reprogramarMantenimiento(id, data) {
       this.loading = true

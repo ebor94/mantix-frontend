@@ -4,10 +4,18 @@
     <div class="space-y-6">
       <!-- Header -->
       <div class="flex items-center justify-between">
-    
-        <!-- ✅ Solo mostrar botones de vista cuando NO estamos en tab consulta -->
-        <div v-if="activeTab !== 'consulta'" class="flex items-center space-x-3">
-       
+        <div v-if="activeTab !== 'consulta'" class="flex items-center space-x-3 ml-auto">
+          <button
+            @click="toggleModoSeleccion"
+            :class="[
+              'text-sm px-4 py-2 rounded-lg font-medium transition-colors',
+              seleccionando
+                ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                : 'bg-primary-600 text-white hover:bg-primary-700'
+            ]"
+          >
+            {{ seleccionando ? 'Cancelar selección' : 'Seleccionar varios' }}
+          </button>
         </div>
       </div>
 
@@ -112,8 +120,12 @@
 
           <div v-else class="space-y-4">
             <MantenimientoCard v-for="mantenimiento in currentMantenimientos" :key="mantenimiento.id"
-              :mantenimiento="mantenimiento" @ejecutar="openEjecutarModal" @reprogramar="openReprogramarModal"
-              @ver-detalle="verDetalle" />
+              :mantenimiento="mantenimiento"
+              :seleccionable="seleccionando"
+              :seleccionado="seleccionados.has(mantenimiento.id)"
+              @ejecutar="openEjecutarModal" @reprogramar="openReprogramarModal"
+              @ver-detalle="verDetalle"
+              @toggle-seleccion="toggleSeleccion" />
           </div>
 
           <!-- Paginación -->
@@ -147,6 +159,36 @@
     <ReprogramarMantenimientoModal v-if="showReprogramarModal" :mantenimiento="selectedMantenimiento"
       @close="showReprogramarModal = false" @success="handleReprogramado" />
 
+    <!-- Modal de Ejecución Múltiple -->
+    <EjecutarMantenimientosMultipleModal
+      v-if="showEjecutarMultipleModal"
+      :mantenimientos="mantenimientosSeleccionados"
+      @close="showEjecutarMultipleModal = false"
+      @success="handleEjecutadosMultiple" />
+
+    <!-- Barra inferior sticky en modo selección -->
+    <div
+      v-if="seleccionando && seleccionados.size > 0"
+      class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-2xl z-40"
+    >
+      <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+          <span class="text-sm font-semibold text-gray-900">
+            {{ seleccionados.size }} mantenimiento{{ seleccionados.size === 1 ? '' : 's' }} seleccionado{{ seleccionados.size === 1 ? '' : 's' }}
+          </span>
+          <button @click="seleccionarTodosVisibles" class="text-sm text-primary-600 hover:text-primary-700 font-medium">
+            Seleccionar todos los visibles
+          </button>
+          <button @click="limpiarSeleccion" class="text-sm text-gray-600 hover:text-gray-800 font-medium">
+            Limpiar
+          </button>
+        </div>
+        <button @click="openEjecutarMultipleModal" class="btn-primary">
+          Ejecutar seleccionados
+        </button>
+      </div>
+    </div>
+
     <Loader :loading="loading" />
   </MainLayout>
 </template>
@@ -160,6 +202,7 @@ import MainLayout from '@/components/common/MainLayout.vue'
 import MantenimientoCard from '@/components/mantenimientos/MantenimientoCard.vue'
 import CalendarioMantenimientos from '@/components/mantenimientos/CalendarioMantenimientos.vue'
 import EjecutarMantenimientoModal from '@/components/mantenimientos/EjecutarMantenimientoModal.vue'
+import EjecutarMantenimientosMultipleModal from '@/components/mantenimientos/EjecutarMantenimientosMultipleModal.vue'
 import ReprogramarMantenimientoModal from '@/components/mantenimientos/ReprogramarMantenimientoModal.vue'
 import MantenimientosFiltroFechas from '@/components/mantenimientos/MantenimientosFiltroFechas.vue'
 import Loader from '@/components/common/Loader.vue'
@@ -194,8 +237,20 @@ const categorias = ref([])  // ✅ NUEVO
 const selectedMantenimiento = ref(null)
 const showEjecutarModal = ref(false)
 const showReprogramarModal = ref(false)
+const showEjecutarMultipleModal = ref(false)
+const seleccionando = ref(false)
+const seleccionados = ref(new Set())
 const currentPage = ref(1)
 const itemsPerPage = 20
+
+const esEjecutable = (m) => {
+  const estado = m?.estado?.nombre
+  return estado === 'Programado' || estado === 'En Proceso' || estado === 'Atrasado'
+}
+
+const mantenimientosSeleccionados = computed(() =>
+  currentMantenimientos.value.filter(m => seleccionados.value.has(m.id))
+)
 
 const tabs = computed(() => [
   { label: 'Todos', value: 'todos', count: mantenimientos.value.length },
@@ -271,6 +326,42 @@ const handleEjecutado = () => {
   loadData()
 }
 
+const toggleModoSeleccion = () => {
+  seleccionando.value = !seleccionando.value
+  seleccionados.value = new Set()
+}
+
+const toggleSeleccion = (id) => {
+  const next = new Set(seleccionados.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  seleccionados.value = next
+}
+
+const seleccionarTodosVisibles = () => {
+  const next = new Set(seleccionados.value)
+  for (const m of currentMantenimientos.value) {
+    if (esEjecutable(m)) next.add(m.id)
+  }
+  seleccionados.value = next
+}
+
+const limpiarSeleccion = () => {
+  seleccionados.value = new Set()
+}
+
+const openEjecutarMultipleModal = () => {
+  if (seleccionados.value.size === 0) return
+  showEjecutarMultipleModal.value = true
+}
+
+const handleEjecutadosMultiple = () => {
+  showEjecutarMultipleModal.value = false
+  seleccionando.value = false
+  seleccionados.value = new Set()
+  loadData()
+}
+
 const handleReprogramado = () => {
   showReprogramarModal.value = false
   loadData()
@@ -334,6 +425,9 @@ const loadCatalogos = async () => {
 
 watch(activeTab, () => {
   currentPage.value = 1
+  if (seleccionando.value) {
+    seleccionados.value = new Set()
+  }
 })
 
 onMounted(() => {

@@ -1,7 +1,26 @@
 <!-- src/components/mantenimientos/MantenimientoCard.vue -->
 <template>
-  <div class="card hover:shadow-lg transition-all">
+  <div
+    class="card hover:shadow-lg transition-all"
+    :class="[
+      seleccionable ? 'cursor-pointer' : '',
+      seleccionado ? 'border-primary-500 ring-2 ring-primary-200' : ''
+    ]"
+    @click="onCardClick"
+  >
     <div class="flex items-start justify-between">
+      <!-- Checkbox de selección múltiple -->
+      <div v-if="seleccionable" class="mr-3 pt-1 flex-shrink-0" @click.stop>
+        <input
+          type="checkbox"
+          :checked="seleccionado"
+          :disabled="!canEjecutar"
+          @change="$emit('toggle-seleccion', mantenimiento.id)"
+          class="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded disabled:opacity-40 disabled:cursor-not-allowed"
+          :title="!canEjecutar ? 'Este mantenimiento ya está ejecutado o no se puede cerrar' : ''"
+        />
+      </div>
+
       <!-- Info Principal -->
       <div class="flex-1">
         <div class="flex items-start space-x-4">
@@ -106,7 +125,7 @@
           </Badge>
         </div>
 
-        <div class="flex items-center space-x-2">
+        <div v-if="!seleccionable" class="flex items-center space-x-2">
           <button @click="$emit('ver-detalle', mantenimiento)"
             class="p-2 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
             title="Ver detalle">
@@ -153,14 +172,28 @@ const props = defineProps({
   mantenimiento: {
     type: Object,
     required: true
+  },
+  seleccionable: {
+    type: Boolean,
+    default: false
+  },
+  seleccionado: {
+    type: Boolean,
+    default: false
   }
 })
 
-defineEmits(['ejecutar', 'reprogramar', 'ver-detalle'])
+const emit = defineEmits(['ejecutar', 'reprogramar', 'ver-detalle', 'toggle-seleccion'])
+
+const onCardClick = () => {
+  if (props.seleccionable && canEjecutar.value) {
+    emit('toggle-seleccion', props.mantenimiento.id)
+  }
+}
 
 const canEjecutar = computed(() => {
   const estado = props.mantenimiento.estado?.nombre
-  return estado === 'Programado' || estado === 'En Proceso'
+  return estado === 'Programado' || estado === 'En Proceso' || estado === 'Atrasado'
 })
 
 const canReprogramar = computed(() => {
