@@ -2,7 +2,8 @@
   <MainLayout>
     <div class="space-y-6">
 
-      <!-- ✅ NUEVO: Selector de Período y Sede -->
+      <!-- Header y KPIs (Este Mes) ocultados a pedido -->
+      <!--
       <div class="card">
         <div class="flex items-center justify-between">
           <div>
@@ -11,7 +12,6 @@
           </div>
 
           <div class="flex items-center space-x-3">
-            <!-- Selector de Período -->
             <select v-model="periodoSeleccionado" @change="handleCambioPeriodo" class="input text-sm">
               <option value="trimestral">Este Trimestre</option>
               <option value="semanal">Esta Semana</option>
@@ -19,7 +19,6 @@
               <option value="anual">Este Año</option>
             </select>
 
-            <!-- Selector de Sede (opcional) -->
             <select v-model="sedeSeleccionada" @change="handleCambioSede" class="input text-sm">
               <option :value="null">Todas las Sedes</option>
               <option v-for="sede in sedes" :key="sede.id" :value="sede.id">
@@ -30,20 +29,16 @@
         </div>
       </div>
 
-      <!-- ✅ ACTUALIZADO: KPI de Cumplimiento con validación -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <KPICard title="Cumplimiento" :value="parseFloat(indicadorGlobal?.porcentaje_cumplimiento || 0)" suffix="%"
           icon="ChartBarIcon" color="blue" :subtitle="subtituloCumplimiento" />
-
         <KPICard title="Mantenimientos Programados" :value="indicadorGlobal?.total_programados || 0" icon="CalendarIcon"
           color="green" :subtitle="`${indicadorGlobal?.total_ejecutados || 0} ejecutados`" />
-
-    <!--     <KPICard title="En Proceso" :value="indicadorGlobal?.total_en_proceso || 0" icon="ClockIcon" color="orange"
-          :subtitle="periodoLabel" /> -->
-
         <KPICard title="Atrasados" :value="indicadorGlobal?.total_atrasados || 0" icon="ExclamationTriangleIcon"
           color="red" :subtitle="periodoLabel" />
       </div>
+      -->
+
 
       <!-- Cumplimiento por Trimestre -->
       <div class="card">
@@ -60,10 +55,15 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div
+          <button
+            type="button"
             v-for="t in cumplimientoTrimestres"
             :key="t.trimestre"
-            class="relative bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow"
+            @click="toggleTrimestre(t.trimestre)"
+            class="relative text-left bg-white border rounded-xl p-5 hover:shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-primary-400"
+            :class="trimestreActivo === t.trimestre
+              ? 'border-primary-500 ring-2 ring-primary-200 shadow-md'
+              : 'border-gray-200'"
           >
             <div class="flex items-center justify-between mb-3">
               <span class="text-sm font-semibold text-gray-700">{{ t.trimestre }}</span>
@@ -86,14 +86,80 @@
               <span>Programados: <strong class="text-gray-900">{{ t.programados }}</strong></span>
               <span>Ejecutados: <strong class="text-green-600">{{ t.ejecutados }}</strong></span>
             </div>
+
+            <div class="mt-3 text-xs text-primary-600 font-medium">
+              {{ trimestreActivo === t.trimestre ? 'Ocultar detalle ▲' : 'Ver detalle ▼' }}
+            </div>
+          </button>
+        </div>
+
+        <!-- Panel de desglose por categoría -->
+        <div v-if="trimestreActivo" class="mt-6 border-t border-gray-200 pt-6">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h4 class="text-base font-semibold text-gray-900">
+                Desglose por categoría · {{ trimestreActivo }} {{ labelTrimestre(trimestreActivo) }} · {{ anioSeleccionado }}
+              </h4>
+              <p class="text-xs text-gray-500 mt-1">
+                Mantenimientos del trimestre agrupados por categoría de equipo.
+              </p>
+            </div>
+            <button
+              @click="trimestreActivo = null"
+              class="text-gray-400 hover:text-gray-600 transition-colors"
+              title="Cerrar"
+            >
+              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div v-if="desgloseLoading" class="text-center py-10 text-sm text-gray-500">
+            Cargando desglose...
+          </div>
+
+          <div v-else-if="desgloseTrimestre.data && desgloseTrimestre.data.length > 0"
+               class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Tabla -->
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
+                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Progr.</th>
+                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Ejec.</th>
+                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">%</th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                  <tr v-for="c in desgloseTrimestre.data" :key="c.categoria_id" class="hover:bg-gray-50">
+                    <td class="px-4 py-2 text-gray-900">{{ c.nombre_categoria }}</td>
+                    <td class="px-4 py-2 text-center">{{ c.programados }}</td>
+                    <td class="px-4 py-2 text-center text-green-600 font-semibold">{{ c.ejecutados }}</td>
+                    <td class="px-4 py-2 text-center font-bold" :class="getPercentageColor(c.porcentaje_cumplimiento)">
+                      {{ parseFloat(c.porcentaje_cumplimiento).toFixed(1) }}%
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Gráfico de barras -->
+            <div class="h-80">
+              <BarChart :data="desgloseChartData" :options="desgloseChartOptions" />
+            </div>
+          </div>
+
+          <div v-else class="text-center py-10 text-sm text-gray-500">
+            Sin datos para este trimestre.
           </div>
         </div>
       </div>
 
-      <!-- ✅ ACTUALIZADO: Gráficos con datos de indicadores -->
+      <!-- Gráficos "Cumplimiento por Sede/Categoría - Este Mes" ocultos a pedido -->
+      <!--
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-        <!-- Cumplimiento por Sede -->
         <ChartCard :title="`Cumplimiento por Sede - ${periodoLabel}`">
           <BarChart v-if="indicadoresPorSede && indicadoresPorSede.length > 0" :data="cumplimientoSedeChartData"
             :options="barChartOptions" />
@@ -101,15 +167,17 @@
             icon="chart" />
         </ChartCard>
 
-        <!-- Cumplimiento por Categoría -->
         <ChartCard :title="`Cumplimiento por Categoría - ${periodoLabel}`">
           <DoughnutChart v-if="indicadoresPorCategoria && indicadoresPorCategoria.length > 0"
             :data="cumplimientoCategoriaChartData" :options="doughnutChartOptions" />
           <EmptyState v-else title="No hay datos" description="No se encontraron datos por categoría" icon="chart" />
         </ChartCard>
       </div>
+      -->
 
-      <!-- ✅ NUEVO: Tabla de Cumplimiento por Sede -->
+
+      <!-- Tabla "Detalle de Cumplimiento por Sede" ocultada a pedido -->
+      <!--
       <div class="card">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">
           Detalle de Cumplimiento por Sede - {{ periodoLabel }}
@@ -119,21 +187,11 @@
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Sede
-                </th>
-                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Programados
-                </th>
-                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ejecutados
-                </th>
-                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Atrasados
-                </th>
-                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cumplimiento
-                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sede</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Programados</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ejecutados</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Atrasados</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Cumplimiento</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
@@ -148,15 +206,9 @@
                     </div>
                   </div>
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                  {{ sede.total_programados }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-green-600 font-semibold">
-                  {{ sede.total_ejecutados }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-red-600">
-                  {{ sede.total_atrasados }}
-                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">{{ sede.total_programados }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-green-600 font-semibold">{{ sede.total_ejecutados }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-red-600">{{ sede.total_atrasados }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-center">
                   <div class="flex items-center justify-center space-x-2">
                     <div class="w-full max-w-xs bg-gray-200 rounded-full h-2">
@@ -177,6 +229,8 @@
         <EmptyState v-else title="No hay datos" description="No se encontraron datos de cumplimiento por sede"
           icon="building" />
       </div>
+      -->
+
 
       <!-- Resto del contenido existente: Solicitudes, Actividad Reciente, Mantenimientos de Hoy -->
       <!-- ... (mantén todo lo que ya tienes) ... -->
@@ -229,7 +283,9 @@ const {
   indicadoresPorCategoria,
   periodoSeleccionado: periodoStore,
   sedeSeleccionada: sedeStore,
-  cumplimientoTrimestres
+  cumplimientoTrimestres,
+  desgloseTrimestre,
+  desgloseLoading
 } = storeToRefs(dashboardStore)
 
 const { mantenimientosHoy } = storeToRefs(mantenimientosStore)
@@ -251,7 +307,52 @@ const labelTrimestre = (q) => {
 }
 
 const handleCambioAnio = async () => {
+  trimestreActivo.value = null
   await dashboardStore.fetchCumplimientoTrimestres(anioSeleccionado.value)
+}
+
+// Drill-down del trimestre
+const trimestreActivo = ref(null)
+
+const toggleTrimestre = async (trimestre) => {
+  if (trimestreActivo.value === trimestre) {
+    trimestreActivo.value = null
+    return
+  }
+  trimestreActivo.value = trimestre
+  await dashboardStore.fetchDesgloseTrimestre(anioSeleccionado.value, trimestre)
+}
+
+const desgloseChartData = computed(() => {
+  const rows = desgloseTrimestre.value?.data || []
+  return {
+    labels: rows.map(r => r.nombre_categoria),
+    datasets: [
+      {
+        label: 'Programados',
+        data: rows.map(r => r.programados),
+        backgroundColor: 'rgba(59, 130, 246, 0.7)',
+        borderRadius: 4
+      },
+      {
+        label: 'Ejecutados',
+        data: rows.map(r => r.ejecutados),
+        backgroundColor: 'rgba(34, 197, 94, 0.8)',
+        borderRadius: 4
+      }
+    ]
+  }
+})
+
+const desgloseChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { position: 'bottom' }
+  },
+  scales: {
+    y: { beginAtZero: true, ticks: { precision: 0 } }
+  }
 }
 
 const subtituloCumplimiento = computed(() => {

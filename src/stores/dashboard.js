@@ -25,14 +25,40 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const cumplimientoTrimestres = ref([])
   const anioTrimestres = ref(new Date().getFullYear())
 
+  // Desglose por categoría del trimestre seleccionado
+  const desgloseTrimestre = ref({ trimestre: null, data: [] })
+  const desgloseLoading = ref(false)
+
+  const fetchDesgloseTrimestre = async (anio, trimestre) => {
+    desgloseLoading.value = true
+    try {
+      const response = await api.get('/dashboard/cumplimiento-trimestres/categorias', {
+        params: { anio, trimestre }
+      })
+      desgloseTrimestre.value = {
+        trimestre: response?.trimestre || trimestre,
+        anio: response?.anio || anio,
+        data: Array.isArray(response?.data) ? response.data : []
+      }
+      return desgloseTrimestre.value
+    } catch (error) {
+      console.error('Error al cargar desglose del trimestre:', error)
+      toast.error('Error al cargar desglose del trimestre')
+      desgloseTrimestre.value = { trimestre, anio, data: [] }
+      return desgloseTrimestre.value
+    } finally {
+      desgloseLoading.value = false
+    }
+  }
+
   const fetchCumplimientoTrimestres = async (anio) => {
     try {
+      // api interceptor ya devuelve response.data, así que `response` = { success, anio, data: [...] }
       const response = await api.get('/dashboard/cumplimiento-trimestres', {
         params: { anio }
       })
-      const payload = response.data?.data ? response : response.data || response
-      cumplimientoTrimestres.value = payload.data || []
-      if (payload.anio) anioTrimestres.value = payload.anio
+      cumplimientoTrimestres.value = Array.isArray(response?.data) ? response.data : []
+      if (response?.anio) anioTrimestres.value = response.anio
       return cumplimientoTrimestres.value
     } catch (error) {
       console.error('Error al cargar cumplimiento por trimestres:', error)
@@ -299,6 +325,11 @@ const cambiarPeriodo = async (nuevoPeriodo) => {
     // Cumplimiento por trimestre
     cumplimientoTrimestres,
     anioTrimestres,
-    fetchCumplimientoTrimestres
+    fetchCumplimientoTrimestres,
+
+    // Desglose por categoría del trimestre
+    desgloseTrimestre,
+    desgloseLoading,
+    fetchDesgloseTrimestre
   }
 })
