@@ -21,6 +21,27 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const periodoSeleccionado = ref('mensual')
   const sedeSeleccionada = ref(null)
 
+  // Cumplimiento por trimestre (4 trimestres del año)
+  const cumplimientoTrimestres = ref([])
+  const anioTrimestres = ref(new Date().getFullYear())
+
+  const fetchCumplimientoTrimestres = async (anio) => {
+    try {
+      const response = await api.get('/dashboard/cumplimiento-trimestres', {
+        params: { anio }
+      })
+      const payload = response.data?.data ? response : response.data || response
+      cumplimientoTrimestres.value = payload.data || []
+      if (payload.anio) anioTrimestres.value = payload.anio
+      return cumplimientoTrimestres.value
+    } catch (error) {
+      console.error('Error al cargar cumplimiento por trimestres:', error)
+      toast.error('Error al cargar cumplimiento por trimestres')
+      cumplimientoTrimestres.value = []
+      return []
+    }
+  }
+
 
   // ✅ NUEVO: Cargar indicador de cumplimiento
 // ✅ CORREGIDO: Cargar indicador de cumplimiento
@@ -273,6 +294,11 @@ const cambiarPeriodo = async (nuevoPeriodo) => {
     fetchIndicadorCumplimiento,
     fetchIndicadoresMultiples,
     cambiarPeriodo,
-    cambiarSede
+    cambiarSede,
+
+    // Cumplimiento por trimestre
+    cumplimientoTrimestres,
+    anioTrimestres,
+    fetchCumplimientoTrimestres
   }
 })

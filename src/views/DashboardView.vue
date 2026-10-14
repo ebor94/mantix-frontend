@@ -45,6 +45,51 @@
           color="red" :subtitle="periodoLabel" />
       </div>
 
+      <!-- Cumplimiento por Trimestre -->
+      <div class="card">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900">Cumplimiento por Trimestre</h3>
+            <p class="text-sm text-gray-500 mt-1">
+              (Ejecutados / Programados) × 100 · Año {{ anioSeleccionado }}
+            </p>
+          </div>
+          <select v-model.number="anioSeleccionado" @change="handleCambioAnio" class="input text-sm">
+            <option v-for="y in aniosDisponibles" :key="y" :value="y">{{ y }}</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div
+            v-for="t in cumplimientoTrimestres"
+            :key="t.trimestre"
+            class="relative bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow"
+          >
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm font-semibold text-gray-700">{{ t.trimestre }}</span>
+              <span class="text-xs text-gray-500">{{ labelTrimestre(t.trimestre) }}</span>
+            </div>
+
+            <div class="text-3xl font-bold mb-2" :class="getPercentageColor(t.porcentaje_cumplimiento)">
+              {{ parseFloat(t.porcentaje_cumplimiento || 0).toFixed(1) }}%
+            </div>
+
+            <div class="w-full bg-gray-200 rounded-full h-2 mb-3">
+              <div
+                class="h-2 rounded-full transition-all"
+                :class="getProgressBarColor(t.porcentaje_cumplimiento)"
+                :style="{ width: Math.min(100, t.porcentaje_cumplimiento || 0) + '%' }"
+              ></div>
+            </div>
+
+            <div class="flex items-center justify-between text-xs text-gray-600">
+              <span>Programados: <strong class="text-gray-900">{{ t.programados }}</strong></span>
+              <span>Ejecutados: <strong class="text-green-600">{{ t.ejecutados }}</strong></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ✅ ACTUALIZADO: Gráficos con datos de indicadores -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
@@ -183,7 +228,8 @@ const {
   indicadoresPorSede,
   indicadoresPorCategoria,
   periodoSeleccionado: periodoStore,
-  sedeSeleccionada: sedeStore
+  sedeSeleccionada: sedeStore,
+  cumplimientoTrimestres
 } = storeToRefs(dashboardStore)
 
 const { mantenimientosHoy } = storeToRefs(mantenimientosStore)
@@ -192,6 +238,21 @@ const { mantenimientosHoy } = storeToRefs(mantenimientosStore)
 const periodoSeleccionado = ref('mensual')
 const sedeSeleccionada = ref(null)
 const sedes = ref([])
+
+const anioSeleccionado = ref(new Date().getFullYear())
+const aniosDisponibles = computed(() => {
+  const actual = new Date().getFullYear()
+  return [actual, actual - 1, actual - 2, actual - 3]
+})
+
+const labelTrimestre = (q) => {
+  const labels = { Q1: 'Ene - Mar', Q2: 'Abr - Jun', Q3: 'Jul - Sep', Q4: 'Oct - Dic' }
+  return labels[q] || ''
+}
+
+const handleCambioAnio = async () => {
+  await dashboardStore.fetchCumplimientoTrimestres(anioSeleccionado.value)
+}
 
 const subtituloCumplimiento = computed(() => {
   if (!indicadorGlobal.value) return 'Cargando...'
@@ -362,7 +423,8 @@ onMounted(async () => {
   await Promise.all([
     dashboardStore.loadDashboardData(),
     mantenimientosStore.fetchMantenimientosHoy(),
-    cargarSedes()
+    cargarSedes(),
+    dashboardStore.fetchCumplimientoTrimestres(anioSeleccionado.value)
   ])
 
   // ✅ DEBUG: Ver qué hay en el store después de cargar
