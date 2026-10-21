@@ -320,6 +320,7 @@
             <thead class="bg-green-500 text-white">
               <tr>
                 <th rowspan="2" class="px-2 py-2 border border-green-700 text-left align-middle sticky left-0 bg-green-500 z-10">Trabajo a Realizar</th>
+                <th rowspan="2" class="px-2 py-2 border border-green-700 text-left align-middle">Equipo</th>
                 <th rowspan="2" class="px-2 py-2 border border-green-700 text-left align-middle">Sede(s)</th>
                 <th rowspan="2" class="px-2 py-2 border border-green-700 text-left align-middle">Responsable</th>
                 <th rowspan="2" class="px-2 py-2 border border-green-700 text-left align-middle">Periodicidad</th>
@@ -339,7 +340,7 @@
             <tbody>
               <template v-for="grupo in programaAnualData" :key="grupo.categoria_id">
                 <tr class="bg-gray-100 font-bold">
-                  <td :colspan="6 + 24" class="px-2 py-2 text-gray-800 border border-gray-300 uppercase">
+                  <td :colspan="7 + 24" class="px-2 py-2 text-gray-800 border border-gray-300 uppercase">
                     {{ grupo.categoria }}
                   </td>
                 </tr>
@@ -349,20 +350,28 @@
                   class="hover:bg-gray-50"
                 >
                   <td class="px-2 py-2 border border-gray-300 sticky left-0 bg-white">{{ act.trabajo_a_realizar }}</td>
+                  <td class="px-2 py-2 border border-gray-300">{{ act.equipo }}</td>
                   <td class="px-2 py-2 border border-gray-300">{{ act.sede_codigo || act.sede_nombre }}</td>
                   <td class="px-2 py-2 border border-gray-300">{{ act.responsable }}</td>
                   <td class="px-2 py-2 border border-gray-300">{{ act.periodicidad }}</td>
                   <td class="px-2 py-2 border border-gray-300">{{ act.tipo_mantenimiento }}</td>
                   <td class="px-2 py-2 border border-gray-300 text-center">{{ act.registro }}</td>
                   <template v-for="m in meses" :key="`cell-${act.id}-${m.num}`">
-                    <td class="px-1 py-2 border border-gray-300 text-center font-semibold">
-                      {{ act.meses[m.num]?.programado ? 'X' : '' }}
+                    <td
+                      class="px-1 py-1 border border-gray-300 text-center whitespace-nowrap"
+                      :class="celdaProgramada(act, m.num) ? 'bg-yellow-50' : ''"
+                    >
+                      {{ formatProgramacionCorta(act.meses[m.num]?.programaciones) }}
                     </td>
                     <td
-                      class="px-1 py-2 border border-gray-300 text-center text-xs whitespace-nowrap"
+                      class="px-1 py-1 border border-gray-300 text-center whitespace-nowrap"
                       :class="celdaEjecutada(act, m.num) ? 'bg-green-200' : ''"
+                      :title="tooltipEjecucion(act.meses[m.num]?.ejecuciones)"
                     >
-                      {{ formatEjecucionCorta(act.meses[m.num]?.ejecuciones) }}
+                      <div>{{ formatEjecucionCorta(act.meses[m.num]?.ejecuciones) }}</div>
+                      <div v-if="celdaEjecutada(act, m.num)" class="text-[10px] text-gray-600 leading-tight mt-0.5">
+                        {{ formatEjecutores(act.meses[m.num]?.ejecuciones) }}
+                      </div>
                     </td>
                   </template>
                 </tr>
@@ -456,9 +465,29 @@ const getTituloReporte = (tipo) => {
   return titulos[tipo] || 'Reporte'
 }
 
-const formatEjecucionCorta = (fechas) => {
+const formatProgramacionCorta = (fechas) => {
   if (!fechas || fechas.length === 0) return ''
   return fechas.map(f => dayjs(f).format('DD/MM')).join(', ')
+}
+
+const formatEjecucionCorta = (ejecuciones) => {
+  if (!ejecuciones || ejecuciones.length === 0) return ''
+  return ejecuciones.map(e => dayjs(e.fecha || e).format('DD/MM')).join(', ')
+}
+
+const formatEjecutores = (ejecuciones) => {
+  if (!ejecuciones || ejecuciones.length === 0) return ''
+  return ejecuciones.map(e => e.ejecutor || '').filter(Boolean).join(', ')
+}
+
+const tooltipEjecucion = (ejecuciones) => {
+  if (!ejecuciones || ejecuciones.length === 0) return ''
+  return ejecuciones.map(e => `${dayjs(e.fecha || e).format('DD/MM/YYYY')}${e.ejecutor ? ' - ' + e.ejecutor : ''}`).join('\n')
+}
+
+const celdaProgramada = (act, mesNum) => {
+  const m = act.meses?.[mesNum]
+  return m && m.programaciones && m.programaciones.length > 0
 }
 
 const celdaEjecutada = (act, mesNum) => {
@@ -523,15 +552,16 @@ const exportarExcel = () => {
 const exportarProgramaAnualExcel = () => {
   const anio = anioSeleccionado.value
   const aoa = []
+  const FIJAS = 7 // Trabajo, Equipo, Sede, Responsable, Periodicidad, Tipo, Reg
 
   // Fila 1: título fusionado
   aoa.push([`PROGRAMA DE MANTENIMIENTOS - ${anio}`])
   aoa.push([])
 
   // Headers (2 filas: mes agrupado + P/E)
-  const headerRow1 = ['Trabajo a Realizar', 'Sede(s)', 'Responsable', 'Periodicidad', 'Tipo de Mto', 'Registro']
+  const headerRow1 = ['Trabajo a Realizar', 'Equipo', 'Sede(s)', 'Responsable', 'Periodicidad', 'Tipo de Mto', 'Registro']
   for (const m of meses) { headerRow1.push(m.nombre, '') }
-  const headerRow2 = ['', '', '', '', '', '']
+  const headerRow2 = Array(FIJAS).fill('')
   for (let i = 0; i < 12; i++) headerRow2.push('P', 'E')
   aoa.push(headerRow1)
   aoa.push(headerRow2)
@@ -542,6 +572,7 @@ const exportarProgramaAnualExcel = () => {
     for (const act of grupo.actividades) {
       const row = [
         act.trabajo_a_realizar,
+        act.equipo,
         act.sede_codigo || act.sede_nombre,
         act.responsable,
         act.periodicidad,
@@ -549,9 +580,14 @@ const exportarProgramaAnualExcel = () => {
         act.registro
       ]
       for (const m of meses) {
-        const cell = act.meses?.[m.num] || { programado: false, ejecuciones: [] }
-        row.push(cell.programado ? 'X' : '')
-        row.push((cell.ejecuciones || []).map(f => dayjs(f).format('DD/MM/YYYY')).join(', '))
+        const cell = act.meses?.[m.num] || { programaciones: [], ejecuciones: [] }
+        const p = (cell.programaciones || []).map(f => dayjs(f).format('DD/MM/YYYY')).join(', ')
+        const e = (cell.ejecuciones || []).map(ej => {
+          const fecha = dayjs(ej.fecha || ej).format('DD/MM/YYYY')
+          return ej.ejecutor ? `${fecha} (${ej.ejecutor})` : fecha
+        }).join(', ')
+        row.push(p)
+        row.push(e)
       }
       aoa.push(row)
     }
@@ -559,21 +595,21 @@ const exportarProgramaAnualExcel = () => {
 
   const ws = XLSX.utils.aoa_to_sheet(aoa)
 
-  // Fusiones: título fila 0 (A1:AD1 = 6 fijas + 24 meses = 30), y headers de meses (ENE..DIC) en fila 2
-  const totalCols = 6 + 24
+  // Fusiones: título fila 0 + headers de meses fila 2
+  const totalCols = FIJAS + 24
   ws['!merges'] = [
     { s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }
   ]
   for (let i = 0; i < 12; i++) {
-    const colStart = 6 + i * 2
+    const colStart = FIJAS + i * 2
     ws['!merges'].push({ s: { r: 2, c: colStart }, e: { r: 2, c: colStart + 1 } })
   }
 
-  // Anchos aproximados
+  // Anchos aproximados: 7 fijas + 24 de meses
   ws['!cols'] = [
-    { wch: 45 }, { wch: 10 }, { wch: 20 }, { wch: 12 }, { wch: 18 }, { wch: 8 }
+    { wch: 45 }, { wch: 25 }, { wch: 10 }, { wch: 20 }, { wch: 12 }, { wch: 18 }, { wch: 8 }
   ]
-  for (let i = 0; i < 24; i++) ws['!cols'].push({ wch: 10 })
+  for (let i = 0; i < 24; i++) ws['!cols'].push({ wch: 22 })
 
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, `R-25 ${anio}`)
