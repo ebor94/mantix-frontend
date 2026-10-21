@@ -89,6 +89,24 @@ export const useReportesStore = defineStore('reportes', {
       }
     },
 
+    // R-25 Programa anual de mantenimientos
+    async generarReporteProgramaAnual({ anio, sede_id = null, categoria_id = null } = {}) {
+      this.loading = true
+      try {
+        const response = await api.get('/reportes/programa-anual', {
+          params: { anio, sede_id, categoria_id }
+        })
+        // El interceptor ya devuelve response.data, por lo que `response` = { success, anio, data: [...] }
+        return response
+      } catch (error) {
+        console.error('Error al generar programa anual:', error)
+        toast.error('Error al generar el programa anual')
+        return null
+      } finally {
+        this.loading = false
+      }
+    },
+
     // Obtener estadísticas para reportes
     async obtenerEstadisticas(filtros) {
       this.loading = true

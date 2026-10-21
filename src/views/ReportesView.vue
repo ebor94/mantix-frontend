@@ -86,6 +86,37 @@
           color="purple"
           @seleccionar="seleccionarReporte('equipos')"
         />
+
+        <ReporteCard
+          titulo="R-25 Programa de Mantenimientos"
+          descripcion="Cronograma anual por categoría, 12 meses programado/ejecutado"
+          icono="document"
+          color="red"
+          @seleccionar="seleccionarReporte('programa-anual')"
+        />
+      </div>
+
+      <!-- Filtros adicionales para R-25 -->
+      <div v-if="reporteSeleccionado === 'programa-anual'" class="card">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Filtros del Programa Anual</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Año</label>
+            <select v-model.number="anioSeleccionado" @change="generarReporte" class="input-field">
+              <option v-for="y in aniosDisponibles" :key="y" :value="y">{{ y }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Categoría</label>
+            <select v-model="categoriaSeleccionada" @change="generarReporte" class="input-field">
+              <option :value="null">Todas las categorías</option>
+              <option v-for="c in categorias" :key="c.id" :value="c.id">{{ c.nombre }}</option>
+            </select>
+          </div>
+          <div class="text-xs text-gray-500 flex items-end">
+            El filtro de Sede del encabezado también aplica a este reporte.
+          </div>
+        </div>
       </div>
 
       <!-- Vista Previa del Reporte -->
@@ -283,6 +314,61 @@
               </tr>
             </tbody>
           </table>
+
+          <!-- R-25 Programa anual (pivot categoría × actividad × 12 meses P/E) -->
+          <table v-else-if="reporteSeleccionado === 'programa-anual'" class="min-w-full border-collapse text-xs">
+            <thead class="bg-green-500 text-white">
+              <tr>
+                <th rowspan="2" class="px-2 py-2 border border-green-700 text-left align-middle sticky left-0 bg-green-500 z-10">Trabajo a Realizar</th>
+                <th rowspan="2" class="px-2 py-2 border border-green-700 text-left align-middle">Sede(s)</th>
+                <th rowspan="2" class="px-2 py-2 border border-green-700 text-left align-middle">Responsable</th>
+                <th rowspan="2" class="px-2 py-2 border border-green-700 text-left align-middle">Periodicidad</th>
+                <th rowspan="2" class="px-2 py-2 border border-green-700 text-left align-middle">Tipo de Mto</th>
+                <th rowspan="2" class="px-2 py-2 border border-green-700 text-center align-middle">Reg.</th>
+                <th v-for="m in meses" :key="m.num" colspan="2" class="px-2 py-1 border border-green-700 text-center">
+                  {{ m.nombre }}
+                </th>
+              </tr>
+              <tr>
+                <template v-for="m in meses" :key="`sub-${m.num}`">
+                  <th class="px-2 py-1 border border-green-700 text-center bg-yellow-200 text-gray-800">P</th>
+                  <th class="px-2 py-1 border border-green-700 text-center bg-yellow-200 text-gray-800">E</th>
+                </template>
+              </tr>
+            </thead>
+            <tbody>
+              <template v-for="grupo in programaAnualData" :key="grupo.categoria_id">
+                <tr class="bg-gray-100 font-bold">
+                  <td :colspan="6 + 24" class="px-2 py-2 text-gray-800 border border-gray-300 uppercase">
+                    {{ grupo.categoria }}
+                  </td>
+                </tr>
+                <tr
+                  v-for="act in grupo.actividades"
+                  :key="act.id"
+                  class="hover:bg-gray-50"
+                >
+                  <td class="px-2 py-2 border border-gray-300 sticky left-0 bg-white">{{ act.trabajo_a_realizar }}</td>
+                  <td class="px-2 py-2 border border-gray-300">{{ act.sede_codigo || act.sede_nombre }}</td>
+                  <td class="px-2 py-2 border border-gray-300">{{ act.responsable }}</td>
+                  <td class="px-2 py-2 border border-gray-300">{{ act.periodicidad }}</td>
+                  <td class="px-2 py-2 border border-gray-300">{{ act.tipo_mantenimiento }}</td>
+                  <td class="px-2 py-2 border border-gray-300 text-center">{{ act.registro }}</td>
+                  <template v-for="m in meses" :key="`cell-${act.id}-${m.num}`">
+                    <td class="px-1 py-2 border border-gray-300 text-center font-semibold">
+                      {{ act.meses[m.num]?.programado ? 'X' : '' }}
+                    </td>
+                    <td
+                      class="px-1 py-2 border border-gray-300 text-center text-xs whitespace-nowrap"
+                      :class="celdaEjecutada(act, m.num) ? 'bg-green-200' : ''"
+                    >
+                      {{ formatEjecucionCorta(act.meses[m.num]?.ejecuciones) }}
+                    </td>
+                  </template>
+                </tr>
+              </template>
+            </tbody>
+          </table>
         </div>
 
         <EmptyState
@@ -310,7 +396,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useReportesStore } from '@/stores/reportes'
 import MainLayout from '@/components/common/MainLayout.vue'
@@ -323,13 +409,16 @@ import dayjs from 'dayjs'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
+import { useToast } from 'vue-toastification'
 
+const toast = useToast()
 const reportesStore = useReportesStore()
 const { loading } = storeToRefs(reportesStore)
 
 const reporteSeleccionado = ref(null)
 const datosReporte = ref(null)
 const sedes = ref([])
+const categorias = ref([])
 
 const filtros = ref({
   fecha_inicio: dayjs().startOf('month').format('YYYY-MM-DD'),
@@ -337,14 +426,44 @@ const filtros = ref({
   sede_id: null
 })
 
+// R-25 Programa anual
+const anioSeleccionado = ref(new Date().getFullYear())
+const categoriaSeleccionada = ref(null)
+const programaAnualData = ref([])
+
+const aniosDisponibles = computed(() => {
+  const a = new Date().getFullYear()
+  return [a, a - 1, a - 2, a - 3]
+})
+
+const meses = [
+  { num: 1,  nombre: 'ENE' }, { num: 2,  nombre: 'FEB' },
+  { num: 3,  nombre: 'MAR' }, { num: 4,  nombre: 'ABR' },
+  { num: 5,  nombre: 'MAY' }, { num: 6,  nombre: 'JUN' },
+  { num: 7,  nombre: 'JUL' }, { num: 8,  nombre: 'AGO' },
+  { num: 9,  nombre: 'SEP' }, { num: 10, nombre: 'OCT' },
+  { num: 11, nombre: 'NOV' }, { num: 12, nombre: 'DIC' }
+]
+
 const getTituloReporte = (tipo) => {
   const titulos = {
     cumplimiento: 'Reporte de Cumplimiento',
     mantenimientos: 'Reporte de Mantenimientos',
     solicitudes: 'Reporte de Solicitudes R-275',
-    equipos: 'Inventario de Equipos'
+    equipos: 'Inventario de Equipos',
+    'programa-anual': `R-25 Programa de Mantenimientos ${anioSeleccionado.value}`
   }
   return titulos[tipo] || 'Reporte'
+}
+
+const formatEjecucionCorta = (fechas) => {
+  if (!fechas || fechas.length === 0) return ''
+  return fechas.map(f => dayjs(f).format('DD/MM')).join(', ')
+}
+
+const celdaEjecutada = (act, mesNum) => {
+  const m = act.meses?.[mesNum]
+  return m && m.ejecuciones && m.ejecuciones.length > 0
 }
 
 const seleccionarReporte = async (tipo) => {
@@ -354,6 +473,19 @@ const seleccionarReporte = async (tipo) => {
 
 const generarReporte = async () => {
   if (!reporteSeleccionado.value) return
+
+  if (reporteSeleccionado.value === 'programa-anual') {
+    const resp = await reportesStore.generarReporteProgramaAnual({
+      anio: anioSeleccionado.value,
+      sede_id: filtros.value.sede_id,
+      categoria_id: categoriaSeleccionada.value
+    })
+    programaAnualData.value = Array.isArray(resp?.data) ? resp.data : []
+    // Para que la UI muestre el conteo y habilite exportar, poblamos datosReporte
+    const totalActividades = programaAnualData.value.reduce((acc, g) => acc + (g.actividades?.length || 0), 0)
+    datosReporte.value = totalActividades > 0 ? new Array(totalActividades).fill({}) : []
+    return
+  }
 
   const metodos = {
     cumplimiento: reportesStore.generarReporteCumplimiento,
@@ -375,16 +507,85 @@ const aplicarFiltros = () => {
 const exportarExcel = () => {
   if (!datosReporte.value || datosReporte.value.length === 0) return
 
+  if (reporteSeleccionado.value === 'programa-anual') {
+    exportarProgramaAnualExcel()
+    return
+  }
+
   const ws = XLSX.utils.json_to_sheet(prepararDatosParaExcel())
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, getTituloReporte(reporteSeleccionado.value))
-  
+
   const filename = `${reporteSeleccionado.value}_${dayjs().format('YYYY-MM-DD')}.xlsx`
   XLSX.writeFile(wb, filename)
 }
 
+const exportarProgramaAnualExcel = () => {
+  const anio = anioSeleccionado.value
+  const aoa = []
+
+  // Fila 1: título fusionado
+  aoa.push([`PROGRAMA DE MANTENIMIENTOS - ${anio}`])
+  aoa.push([])
+
+  // Headers (2 filas: mes agrupado + P/E)
+  const headerRow1 = ['Trabajo a Realizar', 'Sede(s)', 'Responsable', 'Periodicidad', 'Tipo de Mto', 'Registro']
+  for (const m of meses) { headerRow1.push(m.nombre, '') }
+  const headerRow2 = ['', '', '', '', '', '']
+  for (let i = 0; i < 12; i++) headerRow2.push('P', 'E')
+  aoa.push(headerRow1)
+  aoa.push(headerRow2)
+
+  // Datos agrupados
+  for (const grupo of programaAnualData.value) {
+    aoa.push([String(grupo.categoria).toUpperCase()])
+    for (const act of grupo.actividades) {
+      const row = [
+        act.trabajo_a_realizar,
+        act.sede_codigo || act.sede_nombre,
+        act.responsable,
+        act.periodicidad,
+        act.tipo_mantenimiento,
+        act.registro
+      ]
+      for (const m of meses) {
+        const cell = act.meses?.[m.num] || { programado: false, ejecuciones: [] }
+        row.push(cell.programado ? 'X' : '')
+        row.push((cell.ejecuciones || []).map(f => dayjs(f).format('DD/MM/YYYY')).join(', '))
+      }
+      aoa.push(row)
+    }
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa)
+
+  // Fusiones: título fila 0 (A1:AD1 = 6 fijas + 24 meses = 30), y headers de meses (ENE..DIC) en fila 2
+  const totalCols = 6 + 24
+  ws['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }
+  ]
+  for (let i = 0; i < 12; i++) {
+    const colStart = 6 + i * 2
+    ws['!merges'].push({ s: { r: 2, c: colStart }, e: { r: 2, c: colStart + 1 } })
+  }
+
+  // Anchos aproximados
+  ws['!cols'] = [
+    { wch: 45 }, { wch: 10 }, { wch: 20 }, { wch: 12 }, { wch: 18 }, { wch: 8 }
+  ]
+  for (let i = 0; i < 24; i++) ws['!cols'].push({ wch: 10 })
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, `R-25 ${anio}`)
+  XLSX.writeFile(wb, `R-25_Programa_Mantenimientos_${anio}.xlsx`)
+}
+
 const exportarPDF = () => {
   if (!datosReporte.value || datosReporte.value.length === 0) return
+  if (reporteSeleccionado.value === 'programa-anual') {
+    toast.info('Para el R-25 usá "Exportar a Excel" (el cronograma es demasiado ancho para PDF).')
+    return
+  }
 
   const doc = new jsPDF()
   
@@ -501,7 +702,19 @@ const loadSedes = async () => {
   }
 }
 
+const loadCategorias = async () => {
+  try {
+    const response = await api.get('/categorias-mantenimiento')
+    categorias.value = Array.isArray(response?.data) ? response.data
+      : Array.isArray(response) ? response
+      : []
+  } catch (error) {
+    console.error('Error al cargar categorías:', error)
+  }
+}
+
 onMounted(() => {
   loadSedes()
+  loadCategorias()
 })
 </script>
