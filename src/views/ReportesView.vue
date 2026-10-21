@@ -325,6 +325,7 @@
                 <th rowspan="2" class="px-2 py-2 border border-green-700 text-left align-middle">Responsable</th>
                 <th rowspan="2" class="px-2 py-2 border border-green-700 text-left align-middle">Periodicidad</th>
                 <th rowspan="2" class="px-2 py-2 border border-green-700 text-left align-middle">Tipo de Mto</th>
+                <th rowspan="2" class="px-2 py-2 border border-green-700 text-left align-middle">Exigencia</th>
                 <th rowspan="2" class="px-2 py-2 border border-green-700 text-center align-middle">Reg.</th>
                 <th v-for="m in meses" :key="m.num" colspan="2" class="px-2 py-1 border border-green-700 text-center">
                   {{ m.nombre }}
@@ -340,7 +341,7 @@
             <tbody>
               <template v-for="grupo in programaAnualData" :key="grupo.categoria_id">
                 <tr class="bg-gray-100 font-bold">
-                  <td :colspan="7 + 24" class="px-2 py-2 text-gray-800 border border-gray-300 uppercase">
+                  <td :colspan="8 + 24" class="px-2 py-2 text-gray-800 border border-gray-300 uppercase">
                     {{ grupo.categoria }}
                   </td>
                 </tr>
@@ -355,6 +356,7 @@
                   <td class="px-2 py-2 border border-gray-300">{{ act.responsable }}</td>
                   <td class="px-2 py-2 border border-gray-300">{{ act.periodicidad }}</td>
                   <td class="px-2 py-2 border border-gray-300">{{ act.tipo_mantenimiento }}</td>
+                  <td class="px-2 py-2 border border-gray-300 capitalize">{{ act.exigencia }}</td>
                   <td class="px-2 py-2 border border-gray-300 text-center">{{ act.registro }}</td>
                   <template v-for="m in meses" :key="`cell-${act.id}-${m.num}`">
                     <td
@@ -584,14 +586,14 @@ const exportarExcel = () => {
 const exportarProgramaAnualExcel = () => {
   const anio = anioSeleccionado.value
   const aoa = []
-  const FIJAS = 7 // Trabajo, Equipo, Sede, Responsable, Periodicidad, Tipo, Reg
+  const FIJAS = 8 // Trabajo, Equipo, Sede, Responsable, Periodicidad, Tipo, Exigencia, Reg
 
   // Fila 1: título fusionado
   aoa.push([`PROGRAMA DE MANTENIMIENTOS - ${anio}`])
   aoa.push([])
 
   // Headers (2 filas: mes agrupado + P/E)
-  const headerRow1 = ['Trabajo a Realizar', 'Equipo', 'Sede(s)', 'Responsable', 'Periodicidad', 'Tipo de Mto', 'Registro']
+  const headerRow1 = ['Trabajo a Realizar', 'Equipo', 'Sede(s)', 'Responsable', 'Periodicidad', 'Tipo de Mto', 'Exigencia', 'Registro']
   for (const m of meses) { headerRow1.push(m.nombre, '') }
   const headerRow2 = Array(FIJAS).fill('')
   for (let i = 0; i < 12; i++) headerRow2.push('P', 'E')
@@ -609,6 +611,7 @@ const exportarProgramaAnualExcel = () => {
         act.responsable,
         act.periodicidad,
         act.tipo_mantenimiento,
+        act.exigencia || '',
         act.registro
       ]
       for (const m of meses) {
@@ -639,9 +642,9 @@ const exportarProgramaAnualExcel = () => {
     ws['!merges'].push({ s: { r: 2, c: colStart }, e: { r: 2, c: colStart + 1 } })
   }
 
-  // Anchos aproximados: 7 fijas + 24 de meses
+  // Anchos aproximados: 8 fijas + 24 de meses
   ws['!cols'] = [
-    { wch: 45 }, { wch: 25 }, { wch: 10 }, { wch: 20 }, { wch: 12 }, { wch: 18 }, { wch: 8 }
+    { wch: 45 }, { wch: 25 }, { wch: 10 }, { wch: 20 }, { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 8 }
   ]
   for (let i = 0; i < 24; i++) ws['!cols'].push({ wch: 22 })
 
