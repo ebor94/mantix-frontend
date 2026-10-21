@@ -361,16 +361,16 @@
                       class="px-1 py-1 border border-gray-300 text-center whitespace-nowrap"
                       :class="celdaProgramada(act, m.num) ? 'bg-yellow-50' : ''"
                     >
-                      {{ formatProgramacionCorta(act.meses[m.num]?.programaciones) }}
+                      {{ formatProgramacionCorta(act.meses?.[m.num]) }}
                     </td>
                     <td
                       class="px-1 py-1 border border-gray-300 text-center whitespace-nowrap"
                       :class="celdaEjecutada(act, m.num) ? 'bg-green-200' : ''"
-                      :title="tooltipEjecucion(act.meses[m.num]?.ejecuciones)"
+                      :title="tooltipEjecucion(act.meses?.[m.num])"
                     >
-                      <div>{{ formatEjecucionCorta(act.meses[m.num]?.ejecuciones) }}</div>
+                      <div>{{ formatEjecucionCorta(act.meses?.[m.num]) }}</div>
                       <div v-if="celdaEjecutada(act, m.num)" class="text-[10px] text-gray-600 leading-tight mt-0.5">
-                        {{ formatEjecutores(act.meses[m.num]?.ejecuciones) }}
+                        {{ formatEjecutores(act.meses?.[m.num]) }}
                       </div>
                     </td>
                   </template>
@@ -465,34 +465,56 @@ const getTituloReporte = (tipo) => {
   return titulos[tipo] || 'Reporte'
 }
 
-const formatProgramacionCorta = (fechas) => {
-  if (!fechas || fechas.length === 0) return ''
-  return fechas.map(f => dayjs(f).format('DD/MM')).join(', ')
+// Normaliza una celda del pivot soportando ambos shapes:
+// - nuevo: { programaciones: ['YYYY-MM-DD'], ejecuciones: [{fecha, ejecutor}] }
+// - viejo: { programado: boolean, ejecuciones: ['YYYY-MM-DD'] }
+const normalizarCelda = (celda) => {
+  if (!celda) return { programado: false, fechasP: [], ejecuciones: [] }
+
+  const programaciones = Array.isArray(celda.programaciones) ? celda.programaciones : []
+  const programado = programaciones.length > 0 || celda.programado === true
+
+  let ejecuciones = []
+  if (Array.isArray(celda.ejecuciones)) {
+    ejecuciones = celda.ejecuciones.map(e => {
+      if (typeof e === 'string') return { fecha: e, ejecutor: '' }
+      return { fecha: e.fecha, ejecutor: e.ejecutor || '' }
+    }).filter(e => e.fecha)
+  }
+
+  return { programado, fechasP: programaciones, ejecuciones }
 }
 
-const formatEjecucionCorta = (ejecuciones) => {
-  if (!ejecuciones || ejecuciones.length === 0) return ''
-  return ejecuciones.map(e => dayjs(e.fecha || e).format('DD/MM')).join(', ')
+const formatProgramacionCorta = (celda) => {
+  const n = normalizarCelda(celda)
+  if (!n.programado) return ''
+  if (n.fechasP.length === 0) return 'X'
+  return n.fechasP.map(f => dayjs(f).format('DD/MM')).join(', ')
 }
 
-const formatEjecutores = (ejecuciones) => {
-  if (!ejecuciones || ejecuciones.length === 0) return ''
-  return ejecuciones.map(e => e.ejecutor || '').filter(Boolean).join(', ')
+const formatEjecucionCorta = (celda) => {
+  const n = normalizarCelda(celda)
+  if (n.ejecuciones.length === 0) return ''
+  return n.ejecuciones.map(e => dayjs(e.fecha).format('DD/MM')).join(', ')
 }
 
-const tooltipEjecucion = (ejecuciones) => {
-  if (!ejecuciones || ejecuciones.length === 0) return ''
-  return ejecuciones.map(e => `${dayjs(e.fecha || e).format('DD/MM/YYYY')}${e.ejecutor ? ' - ' + e.ejecutor : ''}`).join('\n')
+const formatEjecutores = (celda) => {
+  const n = normalizarCelda(celda)
+  return n.ejecuciones.map(e => e.ejecutor).filter(Boolean).join(', ')
+}
+
+const tooltipEjecucion = (celda) => {
+  const n = normalizarCelda(celda)
+  if (n.ejecuciones.length === 0) return ''
+  return n.ejecuciones.map(e => `${dayjs(e.fecha).format('DD/MM/YYYY')}${e.ejecutor ? ' - ' + e.ejecutor : ''}`).join('\n')
 }
 
 const celdaProgramada = (act, mesNum) => {
-  const m = act.meses?.[mesNum]
-  return m && m.programaciones && m.programaciones.length > 0
+  return normalizarCelda(act.meses?.[mesNum]).programado
 }
 
 const celdaEjecutada = (act, mesNum) => {
-  const m = act.meses?.[mesNum]
-  return m && m.ejecuciones && m.ejecuciones.length > 0
+  return normalizarCelda(act.meses?.[mesNum]).ejecuciones.length > 0
 }
 
 const seleccionarReporte = async (tipo) => {
@@ -509,7 +531,17 @@ const generarReporte = async () => {
       sede_id: filtros.value.sede_id,
       categoria_id: categoriaSeleccionada.value
     })
-    programaAnualData.value = Array.isArray(resp?.data) ? resp.data : []
+    const grupos = Array.isArray(resp?.data) ? [...resp.data] : []
+    // "Equipos de Computo" al final de la lista
+    const esEquiposComputo = (g) => (g.categoria || '').toLowerCase().includes('equipos de computo') ||
+                                     (g.categoria || '').toLowerCase().includes('equipos de cómputo')
+    grupos.sort((a, b) => {
+      const ae = esEquiposComputo(a) ? 1 : 0
+      const be = esEquiposComputo(b) ? 1 : 0
+      if (ae !== be) return ae - be
+      return (a.categoria || '').localeCompare(b.categoria || '', 'es')
+    })
+    programaAnualData.value = grupos
     // Para que la UI muestre el conteo y habilite exportar, poblamos datosReporte
     const totalActividades = programaAnualData.value.reduce((acc, g) => acc + (g.actividades?.length || 0), 0)
     datosReporte.value = totalActividades > 0 ? new Array(totalActividades).fill({}) : []
@@ -580,10 +612,12 @@ const exportarProgramaAnualExcel = () => {
         act.registro
       ]
       for (const m of meses) {
-        const cell = act.meses?.[m.num] || { programaciones: [], ejecuciones: [] }
-        const p = (cell.programaciones || []).map(f => dayjs(f).format('DD/MM/YYYY')).join(', ')
-        const e = (cell.ejecuciones || []).map(ej => {
-          const fecha = dayjs(ej.fecha || ej).format('DD/MM/YYYY')
+        const n = normalizarCelda(act.meses?.[m.num])
+        const p = n.fechasP.length > 0
+          ? n.fechasP.map(f => dayjs(f).format('DD/MM/YYYY')).join(', ')
+          : (n.programado ? 'X' : '')
+        const e = n.ejecuciones.map(ej => {
+          const fecha = dayjs(ej.fecha).format('DD/MM/YYYY')
           return ej.ejecutor ? `${fecha} (${ej.ejecutor})` : fecha
         }).join(', ')
         row.push(p)
