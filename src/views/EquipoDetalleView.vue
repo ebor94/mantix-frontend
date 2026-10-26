@@ -313,10 +313,9 @@
           </div>
 
           <!-- Estado de vida útil del equipo -->
-          <div v-if="equipo.fecha_instalacion && equipo.vida_util_anos"
-               class="card">
+          <div class="card">
             <h3 class="text-lg font-bold text-gray-900 mb-4">Vida útil</h3>
-            <div class="space-y-3">
+            <div v-if="equipo.fecha_instalacion && equipo.vida_util_anos" class="space-y-3">
               <div class="flex items-center justify-between">
                 <span class="text-sm text-gray-600">Edad del equipo</span>
                 <span class="text-sm font-semibold text-gray-900">{{ edadEquipo }} años</span>
@@ -342,6 +341,41 @@
               <p class="text-xs text-gray-500 mt-1">
                 {{ Math.round(porcentajeVidaUtil) }}% de vida útil consumida
               </p>
+            </div>
+            <!-- Prompt para completar si faltan datos -->
+            <div v-else class="space-y-3">
+              <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <div class="flex items-start space-x-2">
+                  <svg class="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div class="flex-1 text-xs text-yellow-800">
+                    <p class="font-semibold mb-1">Datos no registrados</p>
+                    <p>
+                      Falta
+                      <template v-if="!equipo.fecha_instalacion && !equipo.vida_util_anos">
+                        <strong>fecha de instalación</strong> y <strong>vida útil (años)</strong>
+                      </template>
+                      <template v-else-if="!equipo.fecha_instalacion">
+                        <strong>fecha de instalación</strong>
+                      </template>
+                      <template v-else>
+                        <strong>vida útil (años)</strong>
+                      </template>
+                      para calcular edad y vida útil restante del equipo.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <button @click="openEditarModal"
+                      class="w-full inline-flex items-center justify-center px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm font-medium">
+                <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Completar datos del equipo
+              </button>
             </div>
           </div>
 
