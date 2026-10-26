@@ -70,7 +70,18 @@
               
               <div>
                 <label class="text-sm font-medium text-gray-600">Equipo</label>
-                <p class="text-gray-900 font-semibold mt-1">{{ mantenimiento.actividad?.equipo?.nombre || 'N/A' }}</p>
+                <router-link
+                  v-if="mantenimiento.actividad?.equipo?.id"
+                  :to="`/equipos/${mantenimiento.actividad.equipo.id}`"
+                  class="group inline-flex items-center text-gray-900 font-semibold mt-1 hover:text-primary-600 transition-colors"
+                >
+                  <span class="group-hover:underline">{{ mantenimiento.actividad.equipo.nombre }}</span>
+                  <svg class="h-4 w-4 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </router-link>
+                <p v-else class="text-gray-900 font-semibold mt-1">N/A</p>
               </div>
               
               <div>
