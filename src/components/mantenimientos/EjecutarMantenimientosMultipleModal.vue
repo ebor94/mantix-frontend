@@ -17,8 +17,60 @@
         </button>
       </div>
 
+      <!-- Panel de éxito (post-cierre con link Drive) -->
+      <div v-if="jornadaResult" class="p-6 space-y-4">
+        <div class="flex items-start space-x-3">
+          <div class="flex-shrink-0 h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
+            <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900">
+              {{ jornadaResult.count }} mantenimiento{{ jornadaResult.count > 1 ? 's' : '' }} ejecutado{{ jornadaResult.count > 1 ? 's' : '' }}
+            </h3>
+            <p class="text-sm text-gray-500">Los cierres quedaron guardados en mantix.</p>
+          </div>
+        </div>
+
+        <div v-if="jornadaResult.drive_jornada_url"
+             class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <div class="flex items-center space-x-3">
+            <svg class="h-8 w-8 text-blue-600 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12.75 5.25a.75.75 0 00-1.5 0v3.75H7.5a.75.75 0 000 1.5h3.75v3.75a.75.75 0 001.5 0v-3.75h3.75a.75.75 0 000-1.5h-3.75V5.25z"/>
+            </svg>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold text-blue-900">Carpeta de evidencias creada en Drive</p>
+              <p class="text-xs text-blue-700 mt-0.5 truncate">
+                Subí ahí el informe PDF, fotos y checklists de la jornada.
+              </p>
+            </div>
+          </div>
+          <a
+            :href="jornadaResult.drive_jornada_url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="mt-3 inline-flex items-center justify-center w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+          >
+            Abrir carpeta en Drive
+            <svg class="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        </div>
+
+        <div v-else class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm text-yellow-800">
+          No se pudo crear la carpeta en Drive automáticamente. Podés subir las evidencias manualmente o reintentar más tarde.
+        </div>
+
+        <div class="flex justify-end">
+          <button @click="finalizar" class="btn-primary">Listo</button>
+        </div>
+      </div>
+
       <!-- Body -->
-      <form @submit.prevent="handleSubmit" class="p-6 space-y-6">
+      <form v-if="!jornadaResult" @submit.prevent="handleSubmit" class="p-6 space-y-6">
         <!-- Resumen de seleccionados -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">
@@ -213,6 +265,7 @@ const emit = defineEmits(['close', 'success'])
 const mantenimientosStore = useMantenimientosStore()
 const toast = useToast()
 const loading = ref(false)
+const jornadaResult = ref(null) // { count, drive_jornada_url }
 
 const items = ref([...props.mantenimientos])
 
@@ -270,17 +323,29 @@ const handleSubmit = async () => {
       nombre_recibe: form.value.ejecutado_por
     }
 
-    await mantenimientosStore.ejecutarMantenimientosMultiple(
+    const data = await mantenimientosStore.ejecutarMantenimientosMultiple(
       items.value.map(m => m.id),
       payload
     )
 
+    // El backend devuelve el array de ejecuciones. Tomo la URL de Drive de la primera.
+    const first = Array.isArray(data) ? data[0] : null
+    jornadaResult.value = {
+      count: items.value.length,
+      drive_jornada_url: first?.drive_jornada_url || null
+    }
+
+    // Avisamos al padre para que refresque listas (sin cerrar el modal)
     emit('success')
-    emit('close')
   } catch (error) {
     console.error('Error al ejecutar mantenimientos múltiples:', error)
   } finally {
     loading.value = false
   }
+}
+
+const finalizar = () => {
+  jornadaResult.value = null
+  emit('close')
 }
 </script>

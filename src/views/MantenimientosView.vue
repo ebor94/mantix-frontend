@@ -163,7 +163,7 @@
     <EjecutarMantenimientosMultipleModal
       v-if="showEjecutarMultipleModal"
       :mantenimientos="mantenimientosSeleccionados"
-      @close="showEjecutarMultipleModal = false"
+      @close="handleEjecutarMultipleClose"
       @success="handleEjecutadosMultiple" />
 
     <!-- Barra inferior sticky en modo selección -->
@@ -356,10 +356,16 @@ const openEjecutarMultipleModal = () => {
 }
 
 const handleEjecutadosMultiple = () => {
-  showEjecutarMultipleModal.value = false
+  // Al llegar 'success' recargamos datos pero NO cerramos el modal:
+  // el modal muestra ahora un panel de éxito con el link a Drive y se
+  // cierra desde su propio botón "Listo" (emite 'close').
   seleccionando.value = false
   seleccionados.value = new Set()
   loadData()
+}
+
+const handleEjecutarMultipleClose = () => {
+  showEjecutarMultipleModal.value = false
 }
 
 const handleReprogramado = () => {
