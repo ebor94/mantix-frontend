@@ -181,12 +181,12 @@
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2">
-                Responsable
+                Proveedor de Mantenimiento
               </label>
-              <select v-model="form.responsable_id" class="input-field">
+              <select v-model="form.responsable_proveedor_id" class="input-field">
                 <option value="">Sin asignar</option>
-                <option v-for="resp in responsables" :key="resp.id" :value="resp.id">
-                  {{ resp.nombre }} {{ resp.apellido }}
+                <option v-for="prov in proveedores" :key="prov.id" :value="prov.id">
+                  {{ prov.nombre }}
                 </option>
               </select>
             </div>
@@ -264,6 +264,7 @@ const loading = ref(false)
 const categorias = ref([])
 const sedes = ref([])
 const responsables = ref([])
+const proveedores = ref([])
 
 const form = ref({
   codigo: '',
@@ -279,6 +280,7 @@ const form = ref({
   valor_compra: null,
   vida_util_anos: null,
   responsable_id: '',
+  responsable_proveedor_id: '',
   estado: 'operativo',
   observaciones: ''
 })
@@ -298,6 +300,7 @@ const loadFormData = () => {
     valor_compra: props.equipo.valor_compra || null,
     vida_util_anos: props.equipo.vida_util_anos || null,
     responsable_id: props.equipo.responsable_id || '',
+    responsable_proveedor_id: props.equipo.responsable_proveedor_id || '',
     estado: props.equipo.estado || 'operativo',
     observaciones: props.equipo.observaciones || ''
   }
@@ -317,14 +320,17 @@ const handleSubmit = async () => {
 
 const loadCatalogos = async () => {
   try {
-    const [catRes, sedesRes, respRes] = await Promise.all([
+    const [catRes, sedesRes, respRes, provRes] = await Promise.all([
       api.get('/categorias-mantenimiento?activo=true'),
       api.get('/sedes'),
-      api.get('/usuarios?rol=tecnico')
+      api.get('/usuarios?rol=tecnico'),
+      api.get('/proveedores')
     ])
    categorias.value = catRes.data || []
     sedes.value = sedesRes || []
     responsables.value = respRes || []
+    const provList = provRes?.data ?? provRes ?? []
+    proveedores.value = Array.isArray(provList) ? provList : (provList.proveedores || [])
   } catch (error) {
     console.error('Error al cargar catálogos:', error)
   }

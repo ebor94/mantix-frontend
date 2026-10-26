@@ -258,8 +258,14 @@
           <div class="card">
             <h3 class="text-lg font-bold text-gray-900 mb-4">Detalles</h3>
             <div class="space-y-3">
-              <div v-if="equipo.responsable">
-                <label class="text-xs font-medium text-gray-600">Responsable</label>
+              <div v-if="equipo.responsable_proveedor">
+                <label class="text-xs font-medium text-gray-600">Proveedor de Mantenimiento</label>
+                <p class="text-sm font-semibold text-gray-900">
+                  {{ equipo.responsable_proveedor.nombre }}
+                </p>
+              </div>
+              <div v-else-if="equipo.responsable">
+                <label class="text-xs font-medium text-gray-600">Responsable Interno</label>
                 <p class="text-sm font-semibold text-gray-900">
                   {{ equipo.responsable.nombre }} {{ equipo.responsable.apellido }}
                 </p>
