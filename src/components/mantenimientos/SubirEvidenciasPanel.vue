@@ -62,10 +62,10 @@
           :disabled="uploading"
           class="ml-2 text-xs border border-gray-300 rounded px-2 py-1"
         >
-          <option value="00_INFORME">00 Informe</option>
-          <option value="01_HOJAS_DE_SERVICIO">01 Hojas de servicio</option>
-          <option value="02_EVIDENCIAS_FOTOGRAFICAS">02 Fotos</option>
-          <option value="03_CERTIFICADOS">03 Certificados</option>
+          <option value="00_INFORME_CONSOLIDADO">00 Informe consolidado</option>
+          <option value="02_Evidencias_Fotograficas">02 Evidencias fotográficas</option>
+          <option value="03_Checklists_Firmados">03 Checklists firmados</option>
+          <option value="04_Actas_Firmas">04 Actas / Firmas</option>
         </select>
         <button
           @click="archivos.splice(i, 1)"
@@ -152,12 +152,12 @@ const abrirSelector = () => fileInput.value?.click()
 const clasificar = (nombre, mime) => {
   const n = (nombre || '').toLowerCase()
   const m = (mime || '').toLowerCase()
-  if (n.includes('informe') || n.includes('reporte')) return '00_INFORME'
-  if (n.includes('certificad')) return '03_CERTIFICADOS'
-  if (n.includes('hoja') || n.includes('servicio') || n.includes('acta')) return '01_HOJAS_DE_SERVICIO'
-  if (m.startsWith('image/') || /\.(jpg|jpeg|png|heic|webp|gif)$/i.test(n)) return '02_EVIDENCIAS_FOTOGRAFICAS'
-  if (m === 'application/pdf' || n.endsWith('.pdf')) return '00_INFORME'
-  return '03_CERTIFICADOS'
+  if (n.includes('acta') || n.includes('firma')) return '04_Actas_Firmas'
+  if (n.includes('checklist') || n.includes('check') || n.includes('lista')) return '03_Checklists_Firmados'
+  if (n.includes('informe') || n.includes('reporte')) return '00_INFORME_CONSOLIDADO'
+  if (m.startsWith('image/') || /\.(jpg|jpeg|png|heic|webp|gif)$/i.test(n)) return '02_Evidencias_Fotograficas'
+  if (m === 'application/pdf' || n.endsWith('.pdf')) return '00_INFORME_CONSOLIDADO'
+  return '02_Evidencias_Fotograficas'
 }
 
 const addFiles = (fileList) => {
@@ -235,9 +235,9 @@ const humanSize = (bytes) => {
 }
 
 const iconColor = (a) => ({
-  '00_INFORME': 'text-red-500',
-  '01_HOJAS_DE_SERVICIO': 'text-blue-500',
-  '02_EVIDENCIAS_FOTOGRAFICAS': 'text-green-500',
-  '03_CERTIFICADOS': 'text-purple-500'
+  '00_INFORME_CONSOLIDADO': 'text-red-500',
+  '02_Evidencias_Fotograficas': 'text-green-500',
+  '03_Checklists_Firmados': 'text-blue-500',
+  '04_Actas_Firmas': 'text-purple-500'
 })[a.subcarpeta] || 'text-gray-500'
 </script>
