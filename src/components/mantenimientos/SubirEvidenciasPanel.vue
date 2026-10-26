@@ -62,10 +62,10 @@
           :disabled="uploading"
           class="ml-2 text-xs border border-gray-300 rounded px-2 py-1"
         >
-          <option value="00_INFORME_CONSOLIDADO">00 Informe consolidado</option>
-          <option value="02_Evidencias_Fotograficas">02 Evidencias fotográficas</option>
-          <option value="03_Checklists_Firmados">03 Checklists firmados</option>
-          <option value="04_Actas_Firmas">04 Actas / Firmas</option>
+          <option value="00_INFORME_CONSOLIDADO">Informe consolidado (raíz)</option>
+          <option value="02_Evidencias_Fotograficas">Evidencias fotográficas</option>
+          <option value="03_Checklists_Firmados">Checklists firmados</option>
+          <option value="04_Actas_Firmas">Actas / Firmas</option>
         </select>
         <button
           @click="archivos.splice(i, 1)"
