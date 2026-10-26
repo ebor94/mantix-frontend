@@ -14,8 +14,58 @@
         </button>
       </div>
 
+      <!-- Panel de éxito (post-cierre con link Drive) -->
+      <div v-if="jornadaResult" class="p-6 space-y-4">
+        <div class="flex items-start space-x-3">
+          <div class="flex-shrink-0 h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
+            <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900">Mantenimiento ejecutado</h3>
+            <p class="text-sm text-gray-500">El cierre quedó guardado en mantix.</p>
+          </div>
+        </div>
+
+        <div v-if="jornadaResult.drive_jornada_url"
+             class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <div class="flex items-center space-x-3">
+            <svg class="h-8 w-8 text-blue-600 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M4.5 20.5v-17h11l4 4v13h-15zm1-1h13v-11h-4v-4h-9v15z"/>
+            </svg>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold text-blue-900">Carpeta de evidencias creada en Drive</p>
+              <p class="text-xs text-blue-700 mt-0.5 truncate">
+                Subí ahí el informe, fotos y checklist de este mantenimiento.
+              </p>
+            </div>
+          </div>
+          <a
+            :href="jornadaResult.drive_jornada_url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="mt-3 inline-flex items-center justify-center w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+          >
+            Abrir carpeta en Drive
+            <svg class="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        </div>
+
+        <div v-else class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm text-yellow-800">
+          No se pudo crear la carpeta en Drive automáticamente. Podés generarla después desde la vista detalle del mantenimiento con "Generar en Drive".
+        </div>
+
+        <div class="flex justify-end">
+          <button @click="finalizar" class="btn-primary">Listo</button>
+        </div>
+      </div>
+
       <!-- Body -->
-      <form @submit.prevent="handleSubmit" class="p-6 space-y-6">
+      <form v-if="!jornadaResult" @submit.prevent="handleSubmit" class="p-6 space-y-6">
         <!-- Información del Mantenimiento -->
         <div class="bg-gray-50 rounded-xl p-4 space-y-2">
           <div class="flex items-center justify-between">
@@ -302,6 +352,7 @@ const mantenimientosStore = useMantenimientosStore()
 const toast = useToast()
 const loading = ref(false)
 const fileInput = ref(null)
+const jornadaResult = ref(null) // { drive_jornada_url }
 
 const form = ref({
   fecha_ejecucion: dayjs().format('YYYY-MM-DD'),
@@ -430,15 +481,23 @@ const handleSubmit = async () => {
       formData.append('evidencias', img.file)
     })
 
-    await mantenimientosStore.ejecutarMantenimiento(props.mantenimiento.id, formData)
+    const data = await mantenimientosStore.ejecutarMantenimiento(props.mantenimiento.id, formData)
 
-    emit('close')
+    // Captura la URL de Drive devuelta por el backend (via n8n) para mostrar el panel de éxito
+    jornadaResult.value = {
+      drive_jornada_url: data?.drive_jornada_url || null
+    }
+
     emit('success')
   } catch (error) {
     console.error('Error al ejecutar mantenimiento:', error)
-    // El toast ya se muestra en el store
   } finally {
     loading.value = false
   }
+}
+
+const finalizar = () => {
+  jornadaResult.value = null
+  emit('close')
 }
 </script>

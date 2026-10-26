@@ -322,7 +322,8 @@ const verDetalle = (mantenimiento) => {
 }
 
 const handleEjecutado = () => {
-  showEjecutarModal.value = false
+  // El modal ya muestra su propio panel de éxito con el link Drive y se
+  // cierra desde su propio botón "Listo".
   loadData()
 }
 

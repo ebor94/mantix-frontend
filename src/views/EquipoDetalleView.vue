@@ -295,9 +295,70 @@
               </div>
               <div class="flex items-center justify-between">
                 <span class="text-sm text-gray-600">Próximo mantenimiento</span>
-                <span class="text-sm font-medium text-gray-900">
+                <span class="text-sm font-medium" :class="colorProximoMto">
                   {{ proximoMantenimiento ? formatDate(proximoMantenimiento.fecha_programada) : 'N/A' }}
                 </span>
+              </div>
+              <div v-if="diasDesdeUltimo !== null" class="flex items-center justify-between">
+                <span class="text-sm text-gray-600">Días desde último</span>
+                <span class="text-sm font-semibold text-gray-900">{{ diasDesdeUltimo }}</span>
+              </div>
+              <div v-if="diasHastaProximo !== null" class="flex items-center justify-between">
+                <span class="text-sm text-gray-600">Días hasta próximo</span>
+                <span class="text-sm font-semibold" :class="colorProximoMto">
+                  {{ diasHastaProximo >= 0 ? diasHastaProximo : `${Math.abs(diasHastaProximo)} atrasado` }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Estado de vida útil del equipo -->
+          <div v-if="equipo.fecha_instalacion && equipo.vida_util_anos"
+               class="card">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Vida útil</h3>
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-600">Edad del equipo</span>
+                <span class="text-sm font-semibold text-gray-900">{{ edadEquipo }} años</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-600">Vida útil total</span>
+                <span class="text-sm font-semibold text-gray-900">{{ equipo.vida_util_anos }} años</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-600">Vida útil restante</span>
+                <span class="text-sm font-semibold" :class="colorVidaUtil">
+                  {{ vidaUtilRestante >= 0 ? `${vidaUtilRestante} años` : 'Vencida' }}
+                </span>
+              </div>
+              <!-- Barra de progreso -->
+              <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                <div
+                  class="h-2 rounded-full transition-all"
+                  :class="barraVidaUtilColor"
+                  :style="{ width: Math.min(100, Math.max(0, porcentajeVidaUtil)) + '%' }"
+                ></div>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">
+                {{ Math.round(porcentajeVidaUtil) }}% de vida útil consumida
+              </p>
+            </div>
+          </div>
+
+          <!-- Alerta próximo mantenimiento vencido -->
+          <div v-if="diasHastaProximo !== null && diasHastaProximo < 0"
+               class="card bg-red-50 border border-red-200">
+            <div class="flex items-start space-x-3">
+              <svg class="h-6 w-6 text-red-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div>
+                <h4 class="text-sm font-semibold text-red-800">Mantenimiento atrasado</h4>
+                <p class="text-xs text-red-700 mt-1">
+                  El próximo mantenimiento programado tenía fecha {{ formatDate(proximoMantenimiento?.fecha_programada) }}
+                  ({{ Math.abs(diasHastaProximo) }} días de atraso).
+                </p>
               </div>
             </div>
           </div>
@@ -415,14 +476,68 @@ const ultimoMantenimiento = computed(() => {
 })
 
 const proximoMantenimiento = computed(() => {
-  const pendientes = historialMantenimientos.value.filter(m => 
+  const pendientes = historialMantenimientos.value.filter(m =>
     m.estado.nombre === 'Programado' || m.estado.nombre === 'Reprogramado'
   )
   if (pendientes.length === 0) return null
   console.log('Mantenimientos pendientes:', pendientes)
-  return pendientes.sort((a, b) => 
+  return pendientes.sort((a, b) =>
     new Date() - new Date(b.fecha_programada)
   )[0]
+})
+
+// Métricas calculadas para auditoría
+const diasDesdeUltimo = computed(() => {
+  if (!ultimoMantenimiento.value) return null
+  return dayjs().diff(dayjs(ultimoMantenimiento.value.fecha_programada), 'day')
+})
+
+const diasHastaProximo = computed(() => {
+  if (!proximoMantenimiento.value) return null
+  return dayjs(proximoMantenimiento.value.fecha_programada).diff(dayjs(), 'day')
+})
+
+const colorProximoMto = computed(() => {
+  const d = diasHastaProximo.value
+  if (d === null) return 'text-gray-900'
+  if (d < 0) return 'text-red-600'
+  if (d <= 7) return 'text-orange-600'
+  if (d <= 30) return 'text-yellow-600'
+  return 'text-green-600'
+})
+
+const edadEquipo = computed(() => {
+  if (!equipo.value?.fecha_instalacion) return 0
+  const years = dayjs().diff(dayjs(equipo.value.fecha_instalacion), 'year', true)
+  return Math.round(years * 10) / 10
+})
+
+const vidaUtilRestante = computed(() => {
+  if (!equipo.value?.vida_util_anos) return null
+  const restante = equipo.value.vida_util_anos - edadEquipo.value
+  return Math.round(restante * 10) / 10
+})
+
+const porcentajeVidaUtil = computed(() => {
+  if (!equipo.value?.vida_util_anos) return 0
+  return (edadEquipo.value / equipo.value.vida_util_anos) * 100
+})
+
+const colorVidaUtil = computed(() => {
+  const r = vidaUtilRestante.value
+  if (r === null) return 'text-gray-900'
+  if (r < 0) return 'text-red-600'
+  if (r < 1) return 'text-orange-600'
+  if (r < 3) return 'text-yellow-600'
+  return 'text-green-600'
+})
+
+const barraVidaUtilColor = computed(() => {
+  const p = porcentajeVidaUtil.value
+  if (p >= 100) return 'bg-red-500'
+  if (p >= 80) return 'bg-orange-500'
+  if (p >= 60) return 'bg-yellow-500'
+  return 'bg-green-500'
 })
 
 // ✅ NUEVA FUNCIÓN PARA CARGAR HISTORIAL

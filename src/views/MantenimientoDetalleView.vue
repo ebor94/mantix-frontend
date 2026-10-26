@@ -120,7 +120,20 @@
                 <label class="text-sm font-medium text-gray-600">Fecha de Ejecución</label>
                 <p class="text-gray-900 font-semibold mt-1">{{ formatDate(mantenimiento.ejecucion.fecha_ejecucion) }}</p>
               </div>
-              
+
+              <div>
+                <label class="text-sm font-medium text-gray-600">Fecha de Registro</label>
+                <p class="text-gray-900 font-semibold mt-1">
+                  {{ formatDateTime(mantenimiento.ejecucion.created_at) }}
+                </p>
+                <p v-if="demoraRegistro !== null" class="text-xs mt-0.5"
+                   :class="demoraRegistro > 2 ? 'text-orange-600' : 'text-gray-500'">
+                  <span v-if="demoraRegistro === 0">Registrado el mismo día</span>
+                  <span v-else-if="demoraRegistro === 1">Registrado 1 día después</span>
+                  <span v-else>Registrado {{ demoraRegistro }} días después</span>
+                </p>
+              </div>
+
               <div>
                 <label class="text-sm font-medium text-gray-600">Duración</label>
                 <p class="text-gray-900 font-semibold mt-1">
@@ -141,9 +154,56 @@
               <div class="col-span-2">
                 <label class="text-sm font-medium text-gray-600">Ejecutado por</label>
                 <p class="text-gray-900 font-semibold mt-1">
-                  {{ mantenimiento.ejecucion.nombre_recibe || 
+                  {{ mantenimiento.ejecucion.nombre_recibe ||
                      mantenimiento.ejecucion.usuario_ejecutor?.nombre || 'N/A' }}
                 </p>
+              </div>
+            </div>
+
+            <!-- Carpeta Drive de evidencias -->
+            <div v-if="mantenimiento.ejecucion.drive_jornada_url"
+                 class="mt-4 pt-4 border-t border-gray-200 bg-blue-50 -mx-6 px-6 py-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2 min-w-0">
+                  <svg class="h-5 w-5 text-blue-600 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M4.5 20.5v-17h11l4 4v13h-15zm1-1h13v-11h-4v-4h-9v15z"/>
+                  </svg>
+                  <div class="min-w-0">
+                    <p class="text-sm font-semibold text-blue-900">Carpeta de evidencias en Drive</p>
+                    <p class="text-xs text-blue-700 truncate">{{ mantenimiento.ejecucion.drive_jornada_url }}</p>
+                  </div>
+                </div>
+                <a :href="mantenimiento.ejecucion.drive_jornada_url"
+                   target="_blank" rel="noopener noreferrer"
+                   class="ml-3 flex-shrink-0 inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                  Abrir
+                  <svg class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+            <div v-else-if="mantenimiento.ejecucion"
+                 class="mt-4 pt-4 border-t border-gray-200 bg-yellow-50 -mx-6 px-6 py-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                  <svg class="h-5 w-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <p class="text-sm text-yellow-800">Sin carpeta de evidencias en Drive</p>
+                </div>
+                <button @click="regenerarDrive"
+                        :disabled="regenerandoDrive"
+                        class="inline-flex items-center px-3 py-1.5 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+                  <svg v-if="regenerandoDrive" class="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                  </svg>
+                  {{ regenerandoDrive ? 'Generando...' : 'Generar en Drive' }}
+                </button>
               </div>
             </div>
 
@@ -655,6 +715,37 @@ const tipoEvidenciaActivo = ref('antes')
 const evidenciaActual = ref(null)
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3020'
 const apiurlPdf = 'http://localhost:3020'
+const regenerandoDrive = ref(false)
+
+const demoraRegistro = computed(() => {
+  const ej = mantenimiento.value?.ejecucion
+  if (!ej?.fecha_ejecucion || !ej?.created_at) return null
+  return dayjs(ej.created_at).startOf('day').diff(dayjs(ej.fecha_ejecucion).startOf('day'), 'day')
+})
+
+const regenerarDrive = async () => {
+  if (regenerandoDrive.value) return
+  const ejId = mantenimiento.value?.ejecucion?.id
+  const mntId = mantenimiento.value?.id
+  if (!ejId || !mntId) return
+  regenerandoDrive.value = true
+  try {
+    const api = (await import('@/services/api')).default
+    const resp = await api.post(`/mantenimientos/${mntId}/regenerar-drive`)
+    if (resp.success && resp.data?.drive_jornada_url) {
+      toast.success('Carpeta de Drive generada')
+      // Refrescar el detalle para traer el link
+      await mantenimientosStore.fetchMantenimiento(mntId)
+    } else {
+      toast.error(resp.message || 'No se pudo generar la carpeta en Drive')
+    }
+  } catch (e) {
+    console.error(e)
+    toast.error(e.response?.data?.message || 'Error al generar carpeta en Drive')
+  } finally {
+    regenerandoDrive.value = false
+  }
+}
 
 // ✅ NUEVAS REFERENCIAS PARA NOVEDADES
 const showNovedadModal = ref(false)
@@ -753,7 +844,9 @@ const verEvidencia = (evidencia) => {
 }
 
 const handleEjecucionSuccess = async () => {
-  showEjecutarModal.value = false
+  // El modal ya muestra su propio panel de éxito con el link Drive y se
+  // cierra desde su propio botón "Listo". Solo refrescamos el detalle para
+  // que aparezcan los datos de ejecución al cerrar el modal.
   await loadMantenimiento()
 }
 
