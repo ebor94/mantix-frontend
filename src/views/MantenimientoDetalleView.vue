@@ -218,6 +218,13 @@
               </div>
             </div>
 
+            <!-- Subir evidencias a Drive -->
+            <SubirEvidenciasPanel
+              v-if="mantenimiento.ejecucion?.drive_jornada_folder_id"
+              :mantenimiento-id="mantenimiento.id"
+              class="mt-4"
+            />
+
             <div v-if="mantenimiento.ejecucion.trabajo_realizado" class="mt-4 pt-4 border-t border-gray-200">
               <label class="text-sm font-medium text-gray-600">Trabajo Realizado</label>
               <p class="text-gray-900 mt-1 leading-relaxed">{{ mantenimiento.ejecucion.trabajo_realizado }}</p>
@@ -708,6 +715,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import EjecutarMantenimientoModal from '@/components/mantenimientos/EjecutarMantenimientoModal.vue'
 import NovedadCard from '@/components/mantenimientos/NovedadCard.vue' // ✅ NUEVO
 import NovedadModal from '@/components/mantenimientos/NovedadModal.vue' // ✅ NUEVO
+import SubirEvidenciasPanel from '@/components/mantenimientos/SubirEvidenciasPanel.vue'
 import dayjs from 'dayjs'
 import 'dayjs/locale/es'
 
