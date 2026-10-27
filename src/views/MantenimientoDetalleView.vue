@@ -195,28 +195,19 @@
                 </a>
               </div>
             </div>
-            <!-- Oculto para auditoría: panel de alerta cuando falta la carpeta Drive -->
-            <div v-else-if="false && mantenimiento.ejecucion"
-                 class="mt-4 pt-4 border-t border-gray-200 bg-yellow-50 -mx-6 px-6 py-3">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-2">
-                  <svg class="h-5 w-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <p class="text-sm text-yellow-800">Sin carpeta de evidencias en Drive</p>
-                </div>
-                <button @click="regenerarDrive"
-                        :disabled="regenerandoDrive"
-                        class="inline-flex items-center px-3 py-1.5 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">
-                  <svg v-if="regenerandoDrive" class="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                  </svg>
-                  {{ regenerandoDrive ? 'Generando...' : 'Generar en Drive' }}
-                </button>
-              </div>
+            <!-- Mantenimiento ejecutado sin carpeta Drive: solo botón, sin alerta visible -->
+            <div v-else-if="mantenimiento.ejecucion"
+                 class="mt-4 pt-4 border-t border-gray-200 flex justify-end">
+              <button @click="regenerarDrive"
+                      :disabled="regenerandoDrive"
+                      class="inline-flex items-center px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg v-if="regenerandoDrive" class="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                {{ regenerandoDrive ? 'Generando...' : 'Generar en Drive' }}
+              </button>
             </div>
 
             <!-- Subir evidencias a Drive -->
