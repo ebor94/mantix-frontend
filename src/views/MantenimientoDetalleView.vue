@@ -195,7 +195,8 @@
                 </a>
               </div>
             </div>
-            <div v-else-if="mantenimiento.ejecucion"
+            <!-- Oculto para auditoría: panel de alerta cuando falta la carpeta Drive -->
+            <div v-else-if="false && mantenimiento.ejecucion"
                  class="mt-4 pt-4 border-t border-gray-200 bg-yellow-50 -mx-6 px-6 py-3">
               <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-2">
