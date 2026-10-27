@@ -63,9 +63,8 @@
           class="ml-2 text-xs border border-gray-300 rounded px-2 py-1"
         >
           <option value="00_INFORME_CONSOLIDADO">Informe consolidado (raíz)</option>
-          <option value="02_Evidencias_Fotograficas">Evidencias fotográficas</option>
-          <option value="03_Checklists_Firmados">Checklists firmados</option>
-          <option value="04_Actas_Firmas">Actas / Firmas</option>
+          <option value="02_Requisitos_Legales">Requisitos legales</option>
+          <option value="03_Actas_Firmas">Actas / Firmas / Fotos</option>
         </select>
         <button
           @click="archivos.splice(i, 1)"
@@ -152,12 +151,12 @@ const abrirSelector = () => fileInput.value?.click()
 const clasificar = (nombre, mime) => {
   const n = (nombre || '').toLowerCase()
   const m = (mime || '').toLowerCase()
-  if (n.includes('acta') || n.includes('firma')) return '04_Actas_Firmas'
-  if (n.includes('checklist') || n.includes('check') || n.includes('lista')) return '03_Checklists_Firmados'
-  if (n.includes('informe') || n.includes('reporte')) return '00_INFORME_CONSOLIDADO'
-  if (m.startsWith('image/') || /\.(jpg|jpeg|png|heic|webp|gif)$/i.test(n)) return '02_Evidencias_Fotograficas'
+  if (/\b(certificad|requisit|legal|cumplimient|ley|arl|rut|camara|comerc|poliza|contrato)\b/.test(n)) return '02_Requisitos_Legales'
+  if (/\b(acta|firma|recibid|entrega)\b/.test(n)) return '03_Actas_Firmas'
+  if (/\b(informe|reporte|consolidad)\b/.test(n)) return '00_INFORME_CONSOLIDADO'
+  if (m.startsWith('image/') || /\.(jpg|jpeg|png|heic|webp|gif)$/i.test(n)) return '03_Actas_Firmas'
   if (m === 'application/pdf' || n.endsWith('.pdf')) return '00_INFORME_CONSOLIDADO'
-  return '02_Evidencias_Fotograficas'
+  return '03_Actas_Firmas'
 }
 
 const addFiles = (fileList) => {
@@ -236,8 +235,7 @@ const humanSize = (bytes) => {
 
 const iconColor = (a) => ({
   '00_INFORME_CONSOLIDADO': 'text-red-500',
-  '02_Evidencias_Fotograficas': 'text-green-500',
-  '03_Checklists_Firmados': 'text-blue-500',
-  '04_Actas_Firmas': 'text-purple-500'
+  '02_Requisitos_Legales': 'text-blue-500',
+  '03_Actas_Firmas': 'text-purple-500'
 })[a.subcarpeta] || 'text-gray-500'
 </script>
