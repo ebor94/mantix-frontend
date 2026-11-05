@@ -28,6 +28,14 @@
               <option v-for="c in categorias" :key="c.id" :value="c.id">{{ c.nombre }}</option>
             </select>
           </div>
+          <div>
+            <label class="block text-xs text-gray-600 mb-1">Estado</label>
+            <select v-model="filtros.estado_tiempo" class="input-field">
+              <option value="">Todos</option>
+              <option value="atrasado">Atrasados</option>
+              <option value="pendiente">Pendientes (futuros)</option>
+            </select>
+          </div>
           <button @click="recargar" class="btn-secondary">Aplicar</button>
         </div>
       </div>
@@ -164,6 +172,23 @@
 
       <!-- Tab: Pendientes de pre-aprobar (MNT programados sin pre-ejecución) -->
       <div v-else-if="activo === 'sin_preejec'">
+        <div class="mb-4 flex items-center justify-between flex-wrap gap-2">
+          <p class="text-sm text-gray-600">
+            {{ pendientes.length }} mantenimiento{{ pendientes.length === 1 ? '' : 's' }} a imprimir con QR.
+          </p>
+          <button
+            v-if="pendientes.length > 0"
+            @click="generarPDF"
+            :disabled="generandoPDF"
+            class="btn-primary text-sm inline-flex items-center"
+          >
+            <svg v-if="generandoPDF" class="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+            {{ generandoPDF ? `Generando (${progresoPDF}/${pendientes.length})...` : '📄 Generar PDF con QRs' }}
+          </button>
+        </div>
         <div v-if="loading" class="text-center py-10 text-gray-500">Cargando...</div>
         <div v-else-if="pendientes.length === 0" class="card text-center text-gray-500 py-10">
           No hay mantenimientos programados pendientes.
@@ -308,8 +333,10 @@ const firmaZoom = ref(null)
 const tieneEvidencia = (p) =>
   !!(p.firma_tecnico || (p.fotos_urls?.archivos && p.fotos_urls.archivos.length > 0))
 
-const filtros = ref({ desde: '', hasta: '', categoria_id: '' })
+const filtros = ref({ desde: '', hasta: '', categoria_id: '', estado_tiempo: 'atrasado' })
 const categorias = ref([])
+const generandoPDF = ref(false)
+const progresoPDF = ref(0)
 
 const cargarCategorias = async () => {
   try {
@@ -335,9 +362,10 @@ const recargar = async () => {
   const params = Object.fromEntries(
     Object.entries(filtros.value).filter(([_, v]) => v !== '' && v != null)
   )
+  // Para pendientes siempre pedimos con_token=1 para poder generar el PDF
   await Promise.all([
     store.fetchPreEjecuciones(params),
-    store.fetchPendientes(params)
+    store.fetchPendientes({ ...params, con_token: 1 })
   ])
 }
 
@@ -386,6 +414,110 @@ const verQR = async (m) => {
   }
 }
 
+// --- Generar PDF masivo con QRs ---
+const generarPDF = async () => {
+  if (pendientes.value.length === 0) return
+  generandoPDF.value = true
+  progresoPDF.value = 0
+  try {
+    const { jsPDF } = await import('jspdf')
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+
+    const pageW = 210
+    const pageH = 297
+    const marginX = 10
+    const marginY = 10
+    const cols = 2
+    const rows = 2
+    const cellW = (pageW - 2 * marginX) / cols
+    const cellH = (pageH - 2 * marginY) / rows
+
+    const appBase = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '')
+    const baseWeb = (window.location.origin || '').replace(/\/+$/, '') + appBase
+
+    for (let i = 0; i < pendientes.value.length; i++) {
+      const m = pendientes.value[i]
+      if (!m.token_qr) continue
+
+      const posInPage = i % (cols * rows)
+      if (i > 0 && posInPage === 0) doc.addPage()
+
+      const col = posInPage % cols
+      const row = Math.floor(posInPage / cols)
+      const x = marginX + col * cellW
+      const y = marginY + row * cellH
+
+      // Marco
+      doc.setDrawColor(200)
+      doc.rect(x + 2, y + 2, cellW - 4, cellH - 4)
+
+      // Header: código + categoría (chip) + fecha
+      doc.setFontSize(9)
+      doc.setTextColor(100)
+      doc.text(m.codigo || '', x + 5, y + 8)
+      if (m.categoria) {
+        doc.setFontSize(8)
+        doc.text(m.categoria, x + cellW - 5, y + 8, { align: 'right' })
+      }
+
+      // Título actividad
+      doc.setFontSize(11)
+      doc.setTextColor(0)
+      const titulo = doc.splitTextToSize(m.nombre_actividad || 'Mantenimiento programado', cellW - 10)
+      doc.text(titulo.slice(0, 2), x + 5, y + 14)
+
+      // Equipo / Sede / Ubicación / Fecha (columna izq)
+      let ty = y + 26
+      doc.setFontSize(9)
+      doc.setTextColor(60)
+      const info = []
+      if (m.equipo?.nombre) info.push(`Equipo: ${m.equipo.nombre}`)
+      if (m.equipo?.codigo) info.push(`Código: ${m.equipo.codigo}`)
+      if (m.sede?.codigo || m.sede?.nombre) info.push(`Sede: ${m.sede?.nombre || m.sede?.codigo}`)
+      if (m.equipo?.ubicacion) info.push(`Ubicación: ${m.equipo.ubicacion}`)
+      if (m.proveedor) info.push(`Proveedor: ${m.proveedor}`)
+      info.push(`Programado: ${formatearFecha(m.fecha_programada)}${m.esta_atrasado ? ' (ATRASADO)' : ''}`)
+
+      const maxWidth = cellW - 60
+      for (const line of info) {
+        const wrapped = doc.splitTextToSize(line, maxWidth)
+        for (const w of wrapped) {
+          if (ty > y + cellH - 10) break
+          doc.text(w, x + 5, ty)
+          ty += 4
+        }
+      }
+
+      // QR a la derecha
+      const qrUrl = `${baseWeb}/rutina/${m.token_qr}`
+      try {
+        const dataUrl = await QRCode.toDataURL(qrUrl, { margin: 0, width: 220 })
+        const qrSize = 45
+        doc.addImage(dataUrl, 'PNG', x + cellW - qrSize - 5, y + 24, qrSize, qrSize)
+        doc.setFontSize(7)
+        doc.setTextColor(120)
+        doc.text('Escaneá para registrar', x + cellW - qrSize - 5 + qrSize / 2, y + 24 + qrSize + 4, { align: 'center' })
+      } catch (e) {
+        console.error('Error QR:', e)
+      }
+
+      progresoPDF.value = i + 1
+    }
+
+    const fechaStr = new Date().toISOString().slice(0, 10)
+    const catLabel = filtros.value.categoria_id
+      ? (categorias.value.find(c => c.id == filtros.value.categoria_id)?.nombre || 'categoria').replace(/\s+/g, '_')
+      : 'todas'
+    doc.save(`rutinas_${filtros.value.estado_tiempo || 'todos'}_${catLabel}_${fechaStr}.pdf`)
+  } catch (e) {
+    console.error(e)
+    alert('No se pudo generar el PDF.')
+  } finally {
+    generandoPDF.value = false
+    progresoPDF.value = 0
+  }
+}
+
 const formatearFecha = (iso) => {
   if (!iso) return ''
   const d = new Date(iso)
@@ -394,12 +526,8 @@ const formatearFecha = (iso) => {
 }
 
 onMounted(async () => {
-  // Default: último mes
-  const hoy = new Date()
-  const hace30 = new Date(hoy)
-  hace30.setDate(hace30.getDate() - 30)
-  filtros.value.desde = hace30.toISOString().slice(0, 10)
-  filtros.value.hasta = hoy.toISOString().slice(0, 10)
+  // Por defecto NO filtramos por rango de fechas: el selector "Atrasados"
+  // ya se encarga de lo útil para imprimir.
   await cargarCategorias()
   await recargar()
 })
