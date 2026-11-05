@@ -68,6 +68,40 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
   }
 
+  // Análisis oficial del cierre de cada trimestre (ICONTEC)
+  const cierresTrimestre = ref([])
+
+  const fetchCierresTrimestre = async (anio) => {
+    try {
+      const response = await api.get('/dashboard/cierres-trimestre', { params: { anio } })
+      cierresTrimestre.value = Array.isArray(response?.data) ? response.data : []
+      return cierresTrimestre.value
+    } catch (error) {
+      console.error('Error al cargar cierres de trimestre:', error)
+      cierresTrimestre.value = []
+      return []
+    }
+  }
+
+  const guardarCierreTrimestre = async (payload) => {
+    try {
+      const response = await api.put('/dashboard/cierres-trimestre', payload)
+      if (response?.success && response?.data) {
+        const idx = cierresTrimestre.value.findIndex(
+          c => c.trimestre === response.data.trimestre
+        )
+        if (idx >= 0) cierresTrimestre.value[idx] = response.data
+        else cierresTrimestre.value.push(response.data)
+        toast.success(response.message || 'Análisis guardado')
+      }
+      return response?.data
+    } catch (error) {
+      console.error('Error al guardar análisis del trimestre:', error)
+      toast.error(error.response?.data?.message || 'Error al guardar el análisis')
+      throw error
+    }
+  }
+
 
   // ✅ NUEVO: Cargar indicador de cumplimiento
 // ✅ CORREGIDO: Cargar indicador de cumplimiento
@@ -330,6 +364,11 @@ const cambiarPeriodo = async (nuevoPeriodo) => {
     // Desglose por categoría del trimestre
     desgloseTrimestre,
     desgloseLoading,
-    fetchDesgloseTrimestre
+    fetchDesgloseTrimestre,
+
+    // Análisis de cierre de trimestre
+    cierresTrimestre,
+    fetchCierresTrimestre,
+    guardarCierreTrimestre
   }
 })

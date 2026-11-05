@@ -157,6 +157,100 @@
         </div>
       </div>
 
+      <!-- Análisis trimestral (ICONTEC) -->
+      <div class="card">
+        <div class="flex items-center justify-between mb-6">
+          <div class="flex items-center space-x-3">
+            <div class="p-2 bg-indigo-50 rounded-lg">
+              <svg class="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-gray-900">Análisis trimestral</h3>
+              <p class="text-sm text-gray-500">Explicación del cierre de cada trimestre para auditoría ICONTEC</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div
+            v-for="cierre in cierresTrimestre"
+            :key="cierre.trimestre"
+            class="border border-gray-200 rounded-xl p-4 bg-gray-50"
+          >
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center space-x-2">
+                <span class="text-sm font-bold text-gray-900">Q{{ cierre.trimestre }}</span>
+                <span class="text-xs text-gray-500">{{ labelTrimestre('Q' + cierre.trimestre) }} · {{ cierre.anio }}</span>
+              </div>
+              <button
+                @click="abrirEditorAnalisis(cierre)"
+                class="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                {{ cierre.analisis ? 'Editar' : 'Agregar análisis' }}
+              </button>
+            </div>
+
+            <p v-if="cierre.analisis" class="text-sm text-gray-700 whitespace-pre-line mb-2">
+              {{ cierre.analisis }}
+            </p>
+            <p v-else class="text-sm italic text-gray-400 mb-2">
+              Sin análisis registrado.
+            </p>
+
+            <div v-if="cierre.usuario || cierre.updated_at" class="text-xs text-gray-500 pt-2 border-t border-gray-200 flex items-center justify-between">
+              <span v-if="cierre.usuario">Firmado por: <strong class="text-gray-700">{{ cierre.usuario.nombre_completo }}</strong></span>
+              <span v-else></span>
+              <span v-if="cierre.updated_at">{{ formatearFecha(cierre.updated_at) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal edición de análisis trimestral -->
+      <div
+        v-if="analisisEdit"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+        @click.self="analisisEdit = null"
+      >
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div>
+              <h3 class="text-lg font-bold text-gray-900">
+                Análisis Q{{ analisisEdit.trimestre }} · {{ analisisEdit.anio }}
+              </h3>
+              <p class="text-xs text-gray-500">Explicá el resultado del trimestre para la auditoría ICONTEC</p>
+            </div>
+            <button @click="analisisEdit = null" class="text-gray-400 hover:text-gray-600">
+              <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="p-6 space-y-4">
+            <textarea
+              v-model="analisisEdit.analisis"
+              rows="8"
+              maxlength="5000"
+              placeholder="Describí qué pasó en este trimestre: logros, atrasos, causas, acciones correctivas, compromisos con proveedores..."
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-y"
+            ></textarea>
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-gray-500">{{ (analisisEdit.analisis || '').length }} / 5000</span>
+              <div class="space-x-2">
+                <button @click="analisisEdit = null" class="btn-secondary">Cancelar</button>
+                <button @click="guardarAnalisis" :disabled="guardandoAnalisis" class="btn-primary">
+                  {{ guardandoAnalisis ? 'Guardando...' : 'Guardar' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Gráficos "Cumplimiento por Sede/Categoría - Este Mes" ocultos a pedido -->
       <!--
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -285,7 +379,8 @@ const {
   sedeSeleccionada: sedeStore,
   cumplimientoTrimestres,
   desgloseTrimestre,
-  desgloseLoading
+  desgloseLoading,
+  cierresTrimestre
 } = storeToRefs(dashboardStore)
 
 const { mantenimientosHoy } = storeToRefs(mantenimientosStore)
@@ -308,7 +403,50 @@ const labelTrimestre = (q) => {
 
 const handleCambioAnio = async () => {
   trimestreActivo.value = null
-  await dashboardStore.fetchCumplimientoTrimestres(anioSeleccionado.value)
+  await Promise.all([
+    dashboardStore.fetchCumplimientoTrimestres(anioSeleccionado.value),
+    dashboardStore.fetchCierresTrimestre(anioSeleccionado.value)
+  ])
+}
+
+// Análisis de cierre trimestral
+const analisisEdit = ref(null)
+const guardandoAnalisis = ref(false)
+
+const abrirEditorAnalisis = (cierre) => {
+  analisisEdit.value = {
+    anio: cierre.anio,
+    trimestre: cierre.trimestre,
+    analisis: cierre.analisis || ''
+  }
+}
+
+const guardarAnalisis = async () => {
+  if (!analisisEdit.value) return
+  const texto = (analisisEdit.value.analisis || '').trim()
+  if (!texto) return
+  guardandoAnalisis.value = true
+  try {
+    const porcentajeActual = cumplimientoTrimestres.value.find(
+      t => Number(String(t.trimestre).replace('Q', '')) === analisisEdit.value.trimestre
+    )?.porcentaje_cumplimiento ?? null
+    await dashboardStore.guardarCierreTrimestre({
+      anio: analisisEdit.value.anio,
+      trimestre: analisisEdit.value.trimestre,
+      analisis: texto,
+      cumplimiento_registrado: porcentajeActual != null ? Number(porcentajeActual) : null
+    })
+    analisisEdit.value = null
+  } finally {
+    guardandoAnalisis.value = false
+  }
+}
+
+const formatearFecha = (iso) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 // Drill-down del trimestre
@@ -525,7 +663,8 @@ onMounted(async () => {
     dashboardStore.loadDashboardData(),
     mantenimientosStore.fetchMantenimientosHoy(),
     cargarSedes(),
-    dashboardStore.fetchCumplimientoTrimestres(anioSeleccionado.value)
+    dashboardStore.fetchCumplimientoTrimestres(anioSeleccionado.value),
+    dashboardStore.fetchCierresTrimestre(anioSeleccionado.value)
   ])
 
   // ✅ DEBUG: Ver qué hay en el store después de cargar
