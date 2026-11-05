@@ -105,6 +105,41 @@
                 <p v-if="p.observaciones" class="mt-1 text-sm text-gray-600 line-clamp-2">
                   <strong class="text-gray-800">Obs.:</strong> {{ p.observaciones }}
                 </p>
+
+                <!-- Evidencia (fotos + firma) -->
+                <div v-if="tieneEvidencia(p)" class="mt-3 pt-3 border-t border-gray-100 flex items-start flex-wrap gap-4">
+                  <div v-if="p.fotos_urls?.archivos?.length" class="flex-1 min-w-0">
+                    <p class="text-xs font-medium text-gray-600 mb-1">
+                      Fotos adjuntas ({{ p.fotos_urls.archivos.length }})
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                      <a
+                        v-for="(f, i) in p.fotos_urls.archivos"
+                        :key="i"
+                        :href="f.url"
+                        target="_blank" rel="noopener noreferrer"
+                        class="inline-flex items-center space-x-1 text-xs text-primary-600 hover:text-primary-700 bg-primary-50 px-2 py-1 rounded"
+                      >
+                        <span>📎 {{ f.nombre }}</span>
+                      </a>
+                    </div>
+                    <a
+                      v-if="p.fotos_urls.drive_jornada_url"
+                      :href="p.fotos_urls.drive_jornada_url"
+                      target="_blank" rel="noopener noreferrer"
+                      class="inline-block mt-1 text-xs text-gray-500 hover:text-gray-700 underline"
+                    >Abrir carpeta en Drive</a>
+                  </div>
+                  <div v-if="p.firma_tecnico">
+                    <p class="text-xs font-medium text-gray-600 mb-1">Firma</p>
+                    <img
+                      :src="p.firma_tecnico"
+                      alt="Firma"
+                      class="h-16 border border-gray-200 rounded bg-white cursor-pointer"
+                      @click="firmaZoom = p.firma_tecnico"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div class="flex flex-col space-y-2 w-full sm:w-auto">
@@ -221,6 +256,15 @@
       </div>
     </div>
 
+    <!-- Modal zoom firma -->
+    <div v-if="firmaZoom" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" @click.self="firmaZoom = null">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3">Firma del técnico</h3>
+        <img :src="firmaZoom" alt="Firma ampliada" class="w-full border border-gray-200 rounded bg-gray-50" />
+        <button @click="firmaZoom = null" class="mt-4 btn-secondary text-sm">Cerrar</button>
+      </div>
+    </div>
+
     <!-- Modal rechazar -->
     <div v-if="rechazoItem" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" @click.self="rechazoItem = null">
       <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
@@ -259,6 +303,10 @@ const procesando = ref(null)
 const qrModal = ref(null)
 const rechazoItem = ref(null)
 const motivoRechazo = ref('')
+const firmaZoom = ref(null)
+
+const tieneEvidencia = (p) =>
+  !!(p.firma_tecnico || (p.fotos_urls?.archivos && p.fotos_urls.archivos.length > 0))
 
 const filtros = ref({ desde: '', hasta: '', categoria_id: '' })
 const categorias = ref([])
