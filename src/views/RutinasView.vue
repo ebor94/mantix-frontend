@@ -21,6 +21,13 @@
             <label class="block text-xs text-gray-600 mb-1">Hasta</label>
             <input v-model="filtros.hasta" type="date" class="input-field" />
           </div>
+          <div>
+            <label class="block text-xs text-gray-600 mb-1">Categoría</label>
+            <select v-model="filtros.categoria_id" class="input-field">
+              <option value="">Todas</option>
+              <option v-for="c in categorias" :key="c.id" :value="c.id">{{ c.nombre }}</option>
+            </select>
+          </div>
           <button @click="recargar" class="btn-secondary">Aplicar</button>
         </div>
       </div>
@@ -241,6 +248,7 @@ import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRutinasStore } from '@/stores/rutinas'
 import MainLayout from '@/components/common/MainLayout.vue'
+import api from '@/services/api'
 import QRCode from 'qrcode'
 
 const store = useRutinasStore()
@@ -252,7 +260,17 @@ const qrModal = ref(null)
 const rechazoItem = ref(null)
 const motivoRechazo = ref('')
 
-const filtros = ref({ desde: '', hasta: '' })
+const filtros = ref({ desde: '', hasta: '', categoria_id: '' })
+const categorias = ref([])
+
+const cargarCategorias = async () => {
+  try {
+    const resp = await api.get('/categorias-mantenimiento?activo=true')
+    categorias.value = Array.isArray(resp?.data) ? resp.data : (resp?.data?.data || [])
+  } catch (e) {
+    console.error('Error cargando categorías:', e)
+  }
+}
 
 const pendientesAprobar = computed(() =>
   preEjecuciones.value.filter(p => p.estado === 'pendiente')
@@ -265,9 +283,13 @@ const tabs = computed(() => [
 ])
 
 const recargar = async () => {
+  // Limpiamos campos vacíos del payload de filtros para no enviar strings ""
+  const params = Object.fromEntries(
+    Object.entries(filtros.value).filter(([_, v]) => v !== '' && v != null)
+  )
   await Promise.all([
-    store.fetchPreEjecuciones(filtros.value),
-    store.fetchPendientes(filtros.value)
+    store.fetchPreEjecuciones(params),
+    store.fetchPendientes(params)
   ])
 }
 
@@ -330,6 +352,7 @@ onMounted(async () => {
   hace30.setDate(hace30.getDate() - 30)
   filtros.value.desde = hace30.toISOString().slice(0, 10)
   filtros.value.hasta = hoy.toISOString().slice(0, 10)
+  await cargarCategorias()
   await recargar()
 })
 </script>
