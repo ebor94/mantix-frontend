@@ -303,12 +303,11 @@ const verQR = async (m) => {
       qrModal.value.url_publica = resp.url_publica
     }
   }
-  const baseWeb = (window.location.origin || '').replace(/\/+$/, '')
-  const url = qrModal.value.url_publica
-    ? qrModal.value.url_publica.startsWith('http')
-      ? qrModal.value.url_publica
-      : `${baseWeb}${qrModal.value.url_publica}`
-    : `${baseWeb}/rutina/${qrModal.value.token_qr}`
+  // Siempre reconstruimos la URL en el frontend porque conoce el prefijo
+  // de montaje de la app (import.meta.env.BASE_URL), que puede ser "/" o "/mantix/".
+  const appBase = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '')
+  const baseWeb = (window.location.origin || '').replace(/\/+$/, '') + appBase
+  const url = `${baseWeb}/rutina/${qrModal.value.token_qr}`
   qrModal.value.url_publica = url
   try {
     qrModal.value.qrDataUrl = await QRCode.toDataURL(url, { width: 256, margin: 1 })
