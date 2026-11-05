@@ -72,6 +72,18 @@ const routes = [
     meta: { requiresAuth: true }
   }, */
   {
+    path: '/rutinas',
+    name: 'Rutinas',
+    component: () => import('@/views/RutinasView.vue'),
+    meta: { requiresAuth: true, title: 'Rutinas de ejecución' }
+  },
+  {
+    path: '/rutina/:token',
+    name: 'RutinaPublica',
+    component: () => import('@/views/RutinaPublicaView.vue'),
+    meta: { requiresAuth: false, title: 'Registro de mantenimiento' }
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('@/views/NotFoundView.vue')

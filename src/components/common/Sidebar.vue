@@ -146,6 +146,7 @@ const menuItems = computed(() => [
    { name: 'Dashboard', path: '/dashboard', icon: ChartBarIcon },
   { name: 'Planes', path: '/planes', icon: CalendarDaysIcon },
   { name: 'Mantenimientos', path: '/mantenimientos', icon: WrenchIcon },
+  { name: 'Rutinas', path: '/rutinas', icon: WrenchIcon },
   { name: 'Equipos', path: '/equipos', icon: CpuChipIcon },
   { name: 'Reportes', path: '/reportes', icon: ChartPieIcon },
   { name: 'Tipos de mantenimiento', path: '/tipos-mantenimiento', icon: WrenchIcon },
